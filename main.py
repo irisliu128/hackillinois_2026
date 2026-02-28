@@ -6,6 +6,16 @@ import json
 from pathlib import Path
 from src.risk_model import predict
 from terrain_engine import TerrainAnalyzer
+import uuid
+from supabase import create_client
+from dotenv import load_dotenv
+
+load_dotenv()
+
+supabase = create_client(
+    os.getenv("SUPABASE_URL"),
+    os.getenv("SUPABASE_KEY")
+)
 
 app = FastAPI(title="FloodGuard API")
 
@@ -59,4 +69,39 @@ async def analyze(request: AnalyzeRequest):
         "flow_paths": flow_paths,
         "status": "success",
         "input_params": request
+    }
+class UserSettings(BaseModel):
+    polling_interval_minutes: int = 60  # default 60 mins
+
+@app.post("/v1/settings")
+async def create_settings(settings: UserSettings):
+    session_id = str(uuid.uuid4())
+    
+    supabase.table("user_settings").insert({
+        "session_id": session_id,
+        "polling_interval_minutes": settings.polling_interval_minutes
+    }).execute()
+    
+    return {
+        "session_id": session_id,
+        "polling_interval_minutes": settings.polling_interval_minutes,
+        "message": "Settings saved successfully"
+    }
+
+@app.get("/v1/settings/{session_id}")
+async def get_settings(session_id: str):
+    result = supabase.table("user_settings").select("*").eq("session_id", session_id).execute()
+    return result.data[0]
+
+@app.put("/v1/settings/{session_id}")
+async def update_settings(session_id: str, settings: UserSettings):
+    supabase.table("user_settings").update({
+        "polling_interval_minutes": settings.polling_interval_minutes,
+        "updated_at": "now()"
+    }).eq("session_id", session_id).execute()
+    
+    return {
+        "session_id": session_id,
+        "polling_interval_minutes": settings.polling_interval_minutes,
+        "message": "Settings updated successfully"
     }
