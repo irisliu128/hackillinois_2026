@@ -22,6 +22,8 @@ from pydantic import BaseModel, Field
 
 # ── Project-internal imports ────────────────────────────────────────────────
 from src.risk_model import predict as risk_predict, load as load_risk_model
+from src.weather_service import fetch_rainfall_data
+from src.soil_service import fetch_soil_type
 from terrain_engine import TerrainAnalyzer
 
 # ── Logging setup ────────────────────────────────────────────────────────────
@@ -82,8 +84,6 @@ class AnalyzeRequest(BaseModel):
     latitude: float = Field(..., ge=-90,  le=90,   description="Decimal latitude")
     longitude: float = Field(..., ge=-180, le=180,  description="Decimal longitude")
     radius: float    = Field(..., gt=0,             description="Analysis radius in km")
-    rainfall_mm: float = Field(..., ge=0,           description="Recent rainfall in mm")
-    soil_type: str   = Field(..., description="Soil classification: clay | sandy | loam")
 
 
 # ── Health endpoint ───────────────────────────────────────────────────────────
@@ -109,14 +109,27 @@ async def analyze(req: AnalyzeRequest):
     """
     t0 = time.perf_counter()
     logger.info(
-        f"→ /v1/analyze  lat={req.latitude:.4f} lon={req.longitude:.4f} "
-        f"radius={req.radius} rainfall={req.rainfall_mm}mm soil={req.soil_type}"
+        f"→ /v1/analyze  lat={req.latitude:.4f} lon={req.longitude:.4f} radius={req.radius}km"
     )
+
+    # ── Step 0: Auto-fetch Environment (Arul's Automation) ───────────────────
+    logger.info("   Auto-detecting regional environmental data...")
+    rainfall_mm: float = fetch_rainfall_data(req.latitude, req.longitude)
+    soil_type: str = fetch_soil_type(req.latitude, req.longitude)
+    
+    logger.info(f"   Environment detected: {rainfall_mm}mm rain, soil={soil_type}")
+    
+    # Update local request object with auto-detected values for the response metadata
+    env_data = {
+        "auto_rainfall_mm": rainfall_mm,
+        "auto_soil_type": soil_type
+    }
 
     # ── Step 1: ML Risk Score (synchronous but very fast) ────────────────────
     try:
-        risk_score: float = risk_predict(req.latitude, req.longitude)
-        logger.info(f"   ML risk score: {risk_score:.4f}")
+        # We pass the live env data (Arul's work) to the brain for better accuracy.
+        risk_score: float = risk_predict(req.latitude, req.longitude, rainfall_mm, soil_type)
+        logger.info(f"   ML risk score (Live Calibrated): {risk_score:.4f}")
     except Exception as exc:
         logger.error(f"   Risk model prediction failed: {exc}")
         # Return a structured error so the frontend can degrade gracefully
@@ -175,6 +188,7 @@ async def analyze(req: AnalyzeRequest):
     response = {
         "risk_score": risk_score,
         "flow_paths": flow_paths,
+        "environment": env_data,
         "metadata": {
             **_build_metadata(req, elapsed=elapsed_total),
             **({"warning": terrain_warning} if terrain_warning else {}),
@@ -189,8 +203,6 @@ def _build_metadata(req: AnalyzeRequest, elapsed: float) -> dict:
         "lat": req.latitude,
         "lon": req.longitude,
         "radius_km": req.radius,
-        "rainfall_mm": req.rainfall_mm,
-        "soil_type": req.soil_type,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "processing_time_s": round(elapsed, 3),
     }
