@@ -22,8 +22,9 @@ The project is now a complete end-to-end system where the **Brain (ML)**, **Phys
 ## 🔑 Important: Terrain Engine Authentication
 The **Terrain & Hydrology Engine** uses Google Earth Engine (GEE).
 - **Access**: GEE is restricted by Google account permissions.
-- **How to Run**: The account holder (Tanish) must run the backend to enable the "Live Flow Paths" feature.
-- **Fail-Safe**: If the engine cannot authenticate, the system will automatically fallback to proving only the ML Risk Score, ensuring the UI never crashes.
+- **Tanish's Account**: Tanish should ensure he has a `.env` file in the root directory with `GEE_PROJECT_ID="your-project-id"`.
+- **How to Run**: Tanish should run the backend because he has the GEE permissions.
+- **Fail-Safe**: If the engine cannot authenticate, the system will automatically fallback to providing only the ML Risk Score, ensuring the UI never crashes for other users.
 
 ---
 

@@ -14,3 +14,4 @@ geemap
 rasterio
 geopandas
 geoai
+python-dotenv

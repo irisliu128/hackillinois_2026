@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
-import sys
+import os
 import json
 from pathlib import Path
 from src.risk_model import predict
@@ -48,8 +48,9 @@ async def analyze(request: AnalyzeRequest):
         try:
             # Note: This might take 5-15 seconds as it fetches from Google Earth Engine
             geojson_path = terrain_engine.run_full_pipeline(request.latitude, request.longitude)
-            with open(geojson_path, "r") as f:
-                flow_paths = json.load(f)
+            if geojson_path and os.path.exists(geojson_path):
+                with open(geojson_path, "r") as f:
+                    flow_paths = json.load(f)
         except Exception as e:
             print(f"Terrain Engine Error during analysis: {e}")
 

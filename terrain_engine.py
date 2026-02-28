@@ -7,6 +7,11 @@ import json
 import rasterio
 from whitebox import WhiteboxTools
 
+from dotenv import load_dotenv
+
+# Load credentials from .env
+load_dotenv()
+
 logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)s - %(message)s")
 logger = logging.getLogger("TerrainEngine")
 
@@ -20,12 +25,19 @@ class TerrainAnalyzer:
         self._init_gee()
 
     def _init_gee(self):
+        project_id = os.getenv("GEE_PROJECT_ID", "hydroproject-488807")
         try:
-            ee.Initialize(project="hydroproject-488807")
-            logger.info("GEE Initialized.")
+            ee.Initialize(project=project_id)
+            logger.info(f"GEE Initialized with project: {project_id}")
         except Exception as e:
-            logger.error(f"Auth Failed: {e}")
-            raise
+            logger.warning(f"⚠️ PERMISSION NOTICE: Could not initialize Google Earth Engine. "
+                           f"The system will run in Demo Mode (Risk Score only). "
+                           f"To enable Live Terrain, ensure you have the 'serviceusage.serviceUsageConsumer' "
+                           f"role for project '{project_id}'.")
+            # We DON'T raise an error here so the rest of the app (ML Risk) still works
+            self.gee_available = False
+            return
+        self.gee_available = True
 
     def fetch_dem(self, lat, lon, buffer_degrees=0.05):
         bbox = [lon - buffer_degrees, lat - buffer_degrees, lon + buffer_degrees, lat + buffer_degrees]
@@ -76,6 +88,9 @@ class TerrainAnalyzer:
         raise RuntimeError("Even at threshold 5, no water flow was detected. Check your area coordinates.")
 
     def run_full_pipeline(self, lat, lon):
+        if not hasattr(self, 'gee_available') or not self.gee_available:
+            logger.warning("Skipping terrain pipeline: GEE is not available.")
+            return None
         raw_dem = self.fetch_dem(lat, lon)
         accum_map = self.process_hydrology(raw_dem)
         return self.finalize_output(accum_map)
