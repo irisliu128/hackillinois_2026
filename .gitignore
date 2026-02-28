@@ -1,0 +1,38 @@
+# Virtual Environment
+venv/
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment variables (SECRET KEYS GO HERE)
+.env
+.env.local
+
+# ML Model files
+*.pkl
+*.model
+
+# GIS/Data files (these can be huge)
+*.tif
+*.geotiff
+*.shp
+*.dbf
+*.prj
+*.zip
+
+# Jupyter Notebooks checkpoints
+.ipynb_checkpoints/
+
+# OS garbage
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+
+# Railway/deployment
+*.log
