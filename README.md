@@ -1,65 +1,76 @@
-# 🌍 TerraSight | Terrain Intelligence for Agricultural NGOs
+# 🌍 TerraSight: Environmental Intelligence Platform
 
-**TerraSight** is a high-tech decision support tool designed to optimize field safety and irrigation strategy. It combines machine learning risk prediction with live hydrological terrain analysis.
-
----
-
-## 📍 Current Project Status
-**Stage: Full-Stack Integrated (V2)**
-
-The project is now a complete end-to-end system where the **Brain (ML)**, **Physics (Terrain Engine)**, and **Interface (UIs)** communicate in real-time.
-
-| Component | Status | Details |
-| :--- | :--- | :--- |
-| **Brain (ML)** | ✅ **Active** | Trained scikit-learn model predicting landslide probabilities. |
-| **Terrain Engine**| ✅ **Active** | **NEW:** Real-time NASA DEM ingestion and Whitebox water flow simulations. |
-| **Backend (API)** | ✅ **Active** | FastAPI server orchestrating ML and Terrain pipelines. |
-| **Streamlit UI**  | ✅ **Active** | Professional 3D dashboard with dynamic layer injection. |
-| **Leaflet UI**    | ✅ **Active** | Lightweight satellite map with real-time SVG flow paths. |
+TerraSight is an autonomous, global-scale landslide risk and hydrological analysis tool designed for government agencies and NGOs. It combines **Machine Learning**, **Live Satellite Data**, and **Physics-based Simulations** to predict regional hazards with zero manual input.
 
 ---
 
-## 🔑 Important: Terrain Engine Authentication
-The **Terrain & Hydrology Engine** uses Google Earth Engine (GEE).
-- **Access**: GEE is restricted by Google account permissions.
-- **Tanish's Account**: Tanish should ensure he has a `.env` file in the root directory with `GEE_PROJECT_ID="your-project-id"`.
-- **How to Run**: Tanish should run the backend because he has the GEE permissions.
-- **Fail-Safe**: If the engine cannot authenticate, the system will automatically fallback to providing only the ML Risk Score, ensuring the UI never crashes for other users.
+## 🛠️ Developer Status (Feb 2026)
+**[COMPLETED] Person 1: Weather & Soil Automation**
+- Integrated **OpenWeatherMap API** (Live Rainfall).
+- Integrated **ISRIC SoilGrids API** (Global Soil Texture).
+- Updated **ML Calibration Engine** to use Live Saturation data.
+- Built **Professional Leaflet UI** with High-Contrast Satellite Mapping.
 
 ---
 
-## 🚀 Getting Started (Run the Project)
+## 🚀 How to Run (For Prateek/Visualizer)
 
-### 1. Environment Sync
-Ensure your environment has the new GIS and Physics libraries:
-```powershell
-.\venv\Scripts\python.exe -m pip install -r requirements.txt
+### 1. Setup Environment
+Ensure your `.env` file has the following (Ask Arul or Tanish for keys):
+```text
+GEE_PROJECT_ID=hydroproject-488807
+OPENWEATHER_API_KEY=your_key_here
 ```
 
-### 2. Start the Backend API (Terminal 1)
+### 2. Start the Integrated Backend
+The backend now serves the **FastAPI JSON API** AND the **Map UI** from the same port.
 ```powershell
 .\venv\Scripts\python.exe -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
-*Verify: Once it starts, the ML and Terrain Engine are live.*
-
-### 3. Choose Your UI (Terminal 2)
-*   **For the 3D Dashboard (Recommended)**:
-    ```powershell
-    .\venv\Scripts\python.exe -m streamlit run app.py
-    ```
-*   **For the Satellite Web Interface**: 
-    Simply open **`index.html`** in your browser.
+- **Access UI**: `http://localhost:8000`
+- **Access API Docs**: `http://localhost:8000/docs`
 
 ---
 
-## 🛠️ Recent Integration Updates
-- **Neural-Physics Fusion**: The `/v1/analyze` endpoint now merges ML risk probabilities with physical water flow pathfinding.
-- **Dynamic Layer Injection**: UI maps now "listen" to the API and render sub-pixel flow points in real-time.
-- **Robust Session Handling**: Streamlit now uses internal session states to prevent UI threading issues.
-- **Async Feedback**: Added visual spinners and loading states while the system pulls live satellite data.
+## 🧠 Brain Logic (The Calibration Engine)
+The Risk Score (`0.0 - 1.0`) is no longer just a historical number. It is **Live-Calibrated** in `src/risk_model.py`:
+- **Historical Baseline**: Determined by the Scikit-Learn model based on coordinates.
+- **Rainfall Adjustment**: Risk is automatically reduced by **30%** on dry days and increased during storms.
+- **Soil Adjustment**: Clay-heavy soils receive a risk penalty; sandy soils receive a drainage bonus.
 
 ---
 
-## 👥 Contributors
-- **HackIllinois 2026 Team**
-- Built with ❤️ for sustainable agriculture and community safety.
+## 📡 API Reference (POST `/v1/analyze`)
+
+**Request:**
+```json
+{
+  "latitude": 47.6062,
+  "longitude": -122.3321,
+  "radius": 5.0
+}
+```
+
+**Response (Relevant for Visualizer):**
+```json
+{
+  "risk_score": 0.6704,
+  "environment": {
+    "auto_rainfall_mm": 0.0,
+    "auto_soil_type": "loam"
+  },
+  "flow_paths": { "type": "FeatureCollection", "features": [...] },
+  "metadata": { ... }
+}
+```
+
+---
+
+## 🧪 System Verification
+To ensure your visualizer changes haven't broken the risk logic or API orchestration, always run the smoke test:
+```powershell
+.\venv\Scripts\python.exe smoke_test.py
+```
+
+---
+*Created for HackIllinois 2026. Powered by AI and Geospatial Science.*
