@@ -6,6 +6,8 @@ import numpy as np
 import json
 import rasterio
 from whitebox import WhiteboxTools
+from dotenv import load_dotenv
+
 
 logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)s - %(message)s")
 logger = logging.getLogger("TerrainEngine")
@@ -20,11 +22,14 @@ class TerrainAnalyzer:
         self._init_gee()
 
     def _init_gee(self):
+        # This pulls from the .env file instead of being hardcoded
+        project_id = os.getenv("GEE_PROJECT_ID") 
         try:
-            ee.Initialize(project="hydroproject-488807")
-            logger.info("GEE Initialized.")
+            # For a team/production environment, use a Service Account
+            ee.Initialize(project=project_id)
+            logger.info(f"GEE Initialized for Project: {project_id}")
         except Exception as e:
-            logger.error(f"Auth Failed: {e}")
+            logger.error("GEE Auth failed. Run 'ee.Authenticate()' in your terminal.")
             raise
 
     def fetch_dem(self, lat, lon, buffer_degrees=0.05):
