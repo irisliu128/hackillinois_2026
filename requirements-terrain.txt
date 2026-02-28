@@ -1,0 +1,9 @@
+earthengine-api>=0.1.380
+whitebox>=2.3.0
+geopandas>=0.14.0
+
+# GeoAI Unified Workflow dependencies
+# NOTE: The geoai package loads PyTorch and Transformers behind the scenes for 
+# water_segmentation models. The deployment server MUST have >= 4GB RAM to prevent 
+# Out-Of-Memory (OOM) crashes during import or inference.
+geoai
