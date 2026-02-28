@@ -181,6 +181,25 @@ input[type="range"] {
   opacity: 0.85;
 }
 
+.info-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.8rem;
+  margin-bottom: 1.5rem;
+}
+
+.info-box p {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-bottom: 0.4rem;
+  font-family: 'Space Mono', monospace;
+}
+
+.info-box p strong {
+  color: var(--ui-accent);
+}
+
 /* Legend */
 .legend-item {
   display: flex;

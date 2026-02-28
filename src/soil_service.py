@@ -24,9 +24,8 @@ def fetch_soil_type(lat: float, lon: float) -> str:
             
             for layer in layers:
                 name = layer.get("name")
-                # Values are usually stored in 'depths' -> '0-5cm' -> 'values' -> 'mean'
-                # and multiplied by a factor (usually 10). [cite: 20]
-                mean_val = layer.get("depths", [{}])[0].get("values", {}).get("mean", 0)
+                mean_val = layer.get("depths", [{}])[0].get("values", {}).get("mean")
+                if mean_val is None: mean_val = 0
                 
                 if name == "clay":
                     clay_val = mean_val
@@ -35,6 +34,10 @@ def fetch_soil_type(lat: float, lon: float) -> str:
                 elif name == "silt":
                     silt_val = mean_val
             
+            clay_val = float(clay_val)
+            sand_val = float(sand_val)
+            silt_val = float(silt_val)
+
             # Simple heuristic mapping to our 3 types
             if clay_val > sand_val and clay_val > silt_val:
                 result = "clay"

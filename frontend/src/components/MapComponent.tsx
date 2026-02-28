@@ -1,50 +1,46 @@
 import React from 'react';
-import { MapContainer, TileLayer, GeoJSON, Popup } from 'react-leaflet';
-import { RISK_ZONES } from '../data';
-import type { RiskZoneProperties } from '../types';
+import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet';
+import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
-export const MapComponent: React.FC = () => {
-  const getRiskStyle = (feature: any) => {
-    const risk = feature.properties.risk;
-    let fillColor: string;
-    let color: string;
+interface MapComponentProps {
+  center: [number, number];
+  flowPaths: any; // GeoJSON
+}
 
-    if (risk === 'high') {
-      fillColor = '#FF4B2B';
-      color = '#FF4B2B';
-    } else if (risk === 'medium') {
-      fillColor = '#FFA41B';
-      color = '#FFA41B';
-    } else {
-      fillColor = '#00d4aa';
-      color = '#00d4aa';
-    }
-
+export const MapComponent: React.FC<MapComponentProps> = ({ center, flowPaths }) => {
+  const getFlowStyle = (feature: any) => {
     return {
-      fillColor,
-      fillOpacity: 0.35,
-      color,
+      fillColor: "#00F2FF",
+      color: "#111720",
       weight: 2,
-      opacity: 0.8,
+      opacity: 1,
+      fillOpacity: 1,
+      radius: 5
     };
   };
 
+  const pointToLayer = (feature: any, latlng: L.LatLng) => {
+    return L.circleMarker(latlng, {
+      radius: 5,
+      fillColor: "#00F2FF",
+      color: "#111720",
+      weight: 2,
+      opacity: 1,
+      fillOpacity: 1
+    });
+  };
+
   const onEachFeature = (feature: any, layer: any) => {
-    const props = feature.properties as RiskZoneProperties;
-    layer.bindPopup(`
-      <div style="font-family: 'DM Sans', sans-serif; font-size: 13px;">
-        <strong style="font-family: 'Space Mono', monospace; color: #6b7a96;">${props.zone_id}</strong><br>
-        Risk Score: <strong>${props.risk_score}</strong><br>
-        Area: <strong>${props.area_ha} ha</strong>
-      </div>
-    `);
+    if (feature.properties && feature.properties.intensity) {
+      layer.bindPopup(`<strong>Flow Intensity:</strong> ${feature.properties.intensity.toFixed(3)}`);
+    }
   };
 
   return (
     <div className="map-container">
       <MapContainer
-        center={[21.710, 104.878]}
+        center={center}
         zoom={13}
         style={{ height: '100%', width: '100%' }}
         zoomControl={true}
@@ -54,11 +50,13 @@ export const MapComponent: React.FC = () => {
           url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
           maxZoom={18}
         />
-        <GeoJSON
-          data={RISK_ZONES as any}
-          style={getRiskStyle}
-          onEachFeature={onEachFeature}
-        />
+        {flowPaths && (
+          <GeoJSON
+            data={flowPaths}
+            pointToLayer={pointToLayer}
+            onEachFeature={onEachFeature}
+          />
+        )}
       </MapContainer>
     </div>
   );

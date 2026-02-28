@@ -236,20 +236,19 @@ async def analyze(req: AnalyzeRequest):
     response = {
         "risk_score": risk_score,
         "flow_paths": flow_paths,
+        "environment": env_data,
         "status": "success",
         "input_params": {
             "latitude": req.latitude,
             "longitude": req.longitude,
             "radius": req.radius,
         },
-        "environment": env_data,
         "metadata": {
             **_build_metadata(req, elapsed=elapsed_total),
             **({"warning": terrain_warning} if terrain_warning else {}),
         },
     }
     return response
-
 
 # ── User settings (Person 3's endpoint) ─────────────────────────────────────
 
