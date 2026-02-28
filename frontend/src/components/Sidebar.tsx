@@ -4,11 +4,12 @@ import type { AnalysisParams } from '../types';
 interface SidebarProps {
   onAnalyze: (params: AnalysisParams) => void;
   jsonOutput: string;
+  isAnalyzing: boolean;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ onAnalyze, jsonOutput }) => {
-  const [lat, setLat] = useState(21.710);
-  const [lon, setLon] = useState(104.878);
+export const Sidebar: React.FC<SidebarProps> = ({ onAnalyze, jsonOutput, isAnalyzing }) => {
+  const [lat, setLat] = useState(-13.1631);
+  const [lon, setLon] = useState(-72.5450);
   const [radius, setRadius] = useState(5);
   const [rainfall, setRainfall] = useState(1850);
   const [season, setSeason] = useState('monsoon');
@@ -85,8 +86,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ onAnalyze, jsonOutput }) => {
         </select>
       </div>
 
-      <button className="btn-analyze" onClick={handleAnalyze}>
-        ▶ RUN ANALYSIS
+      <button className="btn-analyze" onClick={handleAnalyze} disabled={isAnalyzing}>
+        {isAnalyzing ? '⏳ ANALYZING (GEE takes 10-20s)...' : '▶ RUN ANALYSIS'}
       </button>
 
       <div className="section-header">Legend</div>

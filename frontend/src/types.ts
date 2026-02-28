@@ -15,7 +15,20 @@ export interface AnalysisParams {
 }
 
 export interface AnalysisResponse {
+  risk_score: number | null;
+  flow_paths: any | null; // GeoJSON FeatureCollection
   status: string;
-  input: AnalysisParams;
-  timestamp: string;
+  input_params: {
+    latitude: number;
+    longitude: number;
+    radius: number;
+  };
+  environment: {
+    auto_rainfall_mm: number;
+    auto_soil_type: string;
+    ndvi: number;
+    soil_moisture: number;
+    is_burn_zone: boolean;
+  };
+  metadata: any;
 }

@@ -1,10 +1,22 @@
-import React from 'react';
-import { MapContainer, TileLayer, GeoJSON, Popup } from 'react-leaflet';
+import React, { useEffect } from 'react';
+import { MapContainer, TileLayer, GeoJSON, useMap } from 'react-leaflet';
 import { RISK_ZONES } from '../data';
-import type { RiskZoneProperties } from '../types';
+import type { RiskZoneProperties, AnalysisResponse } from '../types';
 import 'leaflet/dist/leaflet.css';
 
-export const MapComponent: React.FC = () => {
+interface MapComponentProps {
+  currentAnalysis?: AnalysisResponse | null;
+}
+
+const MapUpdater: React.FC<{ center: [number, number] }> = ({ center }) => {
+  const map = useMap();
+  useEffect(() => {
+    map.flyTo(center, 14);
+  }, [center, map]);
+  return null;
+};
+
+export const MapComponent: React.FC<MapComponentProps> = ({ currentAnalysis }) => {
   const getRiskStyle = (feature: any) => {
     const risk = feature.properties.risk;
     let fillColor: string;
@@ -41,6 +53,14 @@ export const MapComponent: React.FC = () => {
     `);
   };
 
+  // Default center or analysis center
+  const center: [number, number] = currentAnalysis
+    ? [currentAnalysis.input_params.latitude, currentAnalysis.input_params.longitude]
+    : [21.710, 104.878];
+
+  // Which GeoJSON to show
+  const geojsonData = currentAnalysis?.flow_paths || RISK_ZONES;
+
   return (
     <div className="map-container">
       <MapContainer
@@ -49,16 +69,20 @@ export const MapComponent: React.FC = () => {
         style={{ height: '100%', width: '100%' }}
         zoomControl={true}
       >
+        <MapUpdater center={center} />
         <TileLayer
           attribution='&copy; <a href="https://www.esri.com/">Esri</a>'
           url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
           maxZoom={18}
         />
-        <GeoJSON
-          data={RISK_ZONES as any}
-          style={getRiskStyle}
-          onEachFeature={onEachFeature}
-        />
+        {geojsonData && (
+          <GeoJSON
+            key={currentAnalysis ? 'live' : 'static'} // force re-mount when switching
+            data={geojsonData as any}
+            style={getRiskStyle}
+            onEachFeature={onEachFeature}
+          />
+        )}
       </MapContainer>
     </div>
   );
