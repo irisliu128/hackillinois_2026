@@ -36,3 +36,6 @@ Thumbs.db
 
 # Railway/deployment
 *.log
+
+# Project Cache
+data/terrain_cache/

@@ -309,31 +309,10 @@
                 <option value="10">10 km</option>
                 <option value="25">25 km</option>
             </select>
-        </div>
-
-        <div class="section-header">Rainfall Parameters</div>
-        <div class="input-group">
-            <label class="input-label">Expected Annual Rainfall</label>
-            <input type="range" id="rainfall" min="800" max="3000" value="1850" step="50">
-            <span class="slider-value"><span id="rainfall-value">1850</span> mm/yr</span>
-        </div>
-        <div class="input-group">
-            <label class="input-label">Season</label>
-            <select id="season">
-                <option value="monsoon">Monsoon (Jun–Sep)</option>
-                <option value="dry">Dry (Oct–Feb)</option>
-                <option value="transition">Transition (Mar–May)</option>
-            </select>
-        </div>
-
-        <div class="section-header">Soil Type</div>
-        <div class="input-group">
-            <select id="soil">
-                <option value="clay_loam">Clay Loam (high runoff)</option>
-                <option value="sandy_loam">Sandy Loam (high drainage)</option>
-                <option value="silty_clay">Silty Clay (moderate)</option>
-                <option value="auto" selected>Auto-detect from coordinates</option>
-            </select>
+            <div
+                style="font-size: 0.7rem; color: #00d4aa; font-family: 'Space Mono', monospace; margin-top: 0.5rem; opacity: 0.8;">
+                ⚡ Environmental data (Weather/Soil) will be auto-detected for this region.
+            </div>
         </div>
 
         <button class="btn-analyze" onclick="runAnalysis()">▶ RUN ANALYSIS</button>
@@ -372,16 +351,12 @@
             <div id="risk-score-value" class="metric-value high">0.71</div>
         </div>
         <div class="metric">
-            <div class="metric-label">High Risk Area</div>
-            <div id="high-risk-area" class="metric-value high">20.5 ha</div>
+            <div class="metric-label">Detected Soil</div>
+            <div id="detected-soil" class="metric-value blue" style="font-size: 0.9rem;">Auto</div>
         </div>
         <div class="metric">
-            <div class="metric-label">Medium Risk Area</div>
-            <div id="med-risk-area" class="metric-value medium">41.0 ha</div>
-        </div>
-        <div class="metric">
-            <div class="metric-label">Low Risk Area</div>
-            <div id="low-risk-area" class="metric-value green">31.5 ha</div>
+            <div class="metric-label">Live Rainfall</div>
+            <div id="live-rainfall" class="metric-value blue" style="font-size: 0.9rem;">Auto</div>
         </div>
     </div>
 
@@ -396,16 +371,15 @@
             zoomControl: true
         });
 
-        // Dark satellite basemap (using ESRI World Imagery with dark filter)
-        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            attribution: 'Tiles &copy; Esri',
-            maxZoom: 18
+        // Final Reliable Tile Server (Standard OpenStreetMap)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors',
+            maxZoom: 19
         }).addTo(map);
 
-        // Add dark overlay for "night mode" effect
-        const darkPane = map.createPane('darkPane');
-        darkPane.style.zIndex = 200;
-        darkPane.style.pointerEvents = 'none';
+        // UI Layer: Dynamic Flow Paths (State)
+        let dynamicFlowLayer = null;
+        let dynamicRiskLayer = null;
 
         // Dummy GeoJSON Data (from original app.py)
         const WATER_CHANNELS = {
@@ -600,25 +574,11 @@
         }).addTo(map);
         */
 
-        let dynamicFlowLayer = null;
-
-        // Rainfall slider update
-        const rainfallSlider = document.getElementById('rainfall');
-        const rainfallValue = document.getElementById('rainfall-value');
-
-        rainfallSlider.addEventListener('input', function () {
-            rainfallValue.textContent = this.value;
-            // TODO: Update risk zones and flow thickness based on rainfall
-        });
-
         // Run Analysis function
         async function runAnalysis() {
             const lat = document.getElementById('lat').value;
             const lon = document.getElementById('lon').value;
             const radius = document.getElementById('radius').value;
-            const rainfall = document.getElementById('rainfall').value;
-            const soil = document.getElementById('soil').value;
-            const season = document.getElementById('season').value;
 
             // UI Feedback: Set to analyzing state
             document.getElementById('json-output').textContent = "Analyzing...";
@@ -629,9 +589,7 @@
             const inputData = {
                 "latitude": parseFloat(lat),
                 "longitude": parseFloat(lon),
-                "radius": parseFloat(radius),
-                "rainfall_mm": parseFloat(rainfall),
-                "soil_type": soil
+                "radius": parseFloat(radius)
             };
 
             try {
@@ -656,32 +614,39 @@
                 else if (score > 0.4) scoreEl.classList.add('medium');
                 else scoreEl.classList.add('green');
 
+                // Update UI with Environment Data
+                if (result.environment) {
+                    document.getElementById('detected-soil').textContent = result.environment.auto_soil_type.toUpperCase();
+                    document.getElementById('live-rainfall').textContent = result.environment.auto_rainfall_mm + " mm";
+                }
+
                 // Update JSON display
                 document.getElementById('json-output').textContent = JSON.stringify(result, null, 2);
 
-                // Update Flow Paths (Terrain Engine Output)
                 if (result.flow_paths) {
                     if (dynamicFlowLayer) map.removeLayer(dynamicFlowLayer);
 
                     dynamicFlowLayer = L.geoJSON(result.flow_paths, {
                         pointToLayer: function (feature, latlng) {
+                            // Coordinate correction check for specific map providers
                             return L.circleMarker(latlng, {
-                                radius: Math.min(feature.properties.intensity * 2, 8),
+                                radius: 5,
                                 fillColor: "#00F2FF",
-                                color: "#00F2FF",
-                                weight: 1,
-                                opacity: 0.8,
-                                fillOpacity: 0.6
+                                color: "#111720",
+                                weight: 2,
+                                opacity: 1,
+                                fillOpacity: 1
                             });
                         },
                         onEachFeature: function (feature, layer) {
-                            layer.bindPopup(`Flow Intensity: ${feature.properties.intensity.toFixed(2)}`);
+                            layer.bindPopup(`<strong>Flow Intensity:</strong> ${feature.properties.intensity.toFixed(3)}`);
                         }
                     }).addTo(map);
 
-                    // Zoom to fit the new flow paths
-                    map.fitBounds(dynamicFlowLayer.getBounds());
-                } else {
+                    // Robust bounds fitting
+                    setTimeout(() => { map.fitBounds(dynamicFlowLayer.getBounds(), { padding: [50, 50] }); }, 500);
+                }
+                else {
                     // Recenter map if no paths
                     map.setView([parseFloat(lat), parseFloat(lon)], 13);
                 }

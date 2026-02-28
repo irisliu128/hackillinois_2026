@@ -34,14 +34,41 @@ def _featurize(lat: float, lon: float, feature_order: list[str]) -> pd.DataFrame
     }
     return pd.DataFrame([row])[feature_order]
 
-def predict(lat: float, lon: float, model_path: str | Path | None = None) -> float:
+def predict(lat: float, lon: float, rainfall_mm: float = 0.0, soil_type: str = "loam", model_path: str | Path | None = None) -> float:
     """
     Return landslide risk probability (0.0–1.0) for the given coordinate.
-    Designed to be imported directly by the FastAPI backend.
+    Calculates a base probability from the ML model, then applies a
+    Live Calibration factor based on real-time Rainfall and Soil data.
     """
     art = load(model_path)
     model = art["model"]
     features = art["features"]
     X = _featurize(lat, lon, features)
-    prob = float(model.predict_proba(X)[0, 1])
-    return prob
+    base_prob = float(model.predict_proba(X)[0, 1])
+    
+    # ── Live Calibration (Environmental Adjustment) ─────────────────────────
+    # The ML model provides a 'Historical/Geological Baseline'. 
+    # We adjust this for 'Live' conditions.
+    
+    multiplier = 1.0
+    
+    # 1. Rainfall Impact: Landslides are hydraulic events. 
+    # If it's bone dry (0mm rain), we still respect the historical baseline 
+    # but apply a slight reduction (e.g. 70% of baseline).
+    if rainfall_mm < 1.0:
+        multiplier *= 0.7 
+    elif rainfall_mm > 5.0:  # Active precipitation
+        multiplier *= 1.2
+    elif rainfall_mm > 30.0: # Severe weather
+        multiplier *= 1.8
+
+    # 2. Soil Impact: Clay is slippery when wet; Sand drains.
+    if soil_type == "clay":
+        multiplier *= 1.2
+    elif soil_type == "sandy":
+        multiplier *= 0.8
+    else: # Loam/Unknown
+        multiplier *= 1.0
+
+    final_prob = float(np.clip(base_prob * multiplier, 0.0, 1.0))
+    return final_prob
