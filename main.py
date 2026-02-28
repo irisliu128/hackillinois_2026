@@ -117,19 +117,37 @@ async def analyze(req: AnalyzeRequest):
     rainfall_mm: float = fetch_rainfall_data(req.latitude, req.longitude)
     soil_type: str = fetch_soil_type(req.latitude, req.longitude)
     
-    logger.info(f"   Environment detected: {rainfall_mm}mm rain, soil={soil_type}")
+    # NEW: Fetch satellite indices from Terrain Engine (GEE)
+    satellite_context = {"ndvi": 0.5, "soil_moisture": 0.2, "is_burn_zone": False}
+    if _terrain_analyzer:
+        try:
+            satellite_context = _terrain_analyzer.get_environmental_context(req.latitude, req.longitude)
+        except Exception as e:
+            logger.warning(f"   Satellite fetch failed, using defaults: {e}")
+
+    logger.info(f"   Environment detected: {rainfall_mm}mm rain, soil={soil_type}, ndvi={satellite_context['ndvi']:.2f}")
     
-    # Update local request object with auto-detected values for the response metadata
     env_data = {
         "auto_rainfall_mm": rainfall_mm,
-        "auto_soil_type": soil_type
+        "auto_soil_type": soil_type,
+        "ndvi": satellite_context["ndvi"],
+        "soil_moisture": satellite_context["soil_moisture"],
+        "is_burn_zone": satellite_context["is_burn_zone"]
     }
 
     # ── Step 1: ML Risk Score (synchronous but very fast) ────────────────────
     try:
-        # We pass the live env data (Arul's work) to the brain for better accuracy.
-        risk_score: float = risk_predict(req.latitude, req.longitude, rainfall_mm, soil_type)
-        logger.info(f"   ML risk score (Live Calibrated): {risk_score:.4f}")
+        # Fusion: ML + Weather + GEE Satellite Indices
+        risk_score: float = risk_predict(
+            req.latitude, 
+            req.longitude, 
+            rainfall_mm=rainfall_mm, 
+            soil_type=soil_type,
+            ndvi=satellite_context["ndvi"],
+            soil_moisture=satellite_context["soil_moisture"],
+            is_burn_zone=satellite_context["is_burn_zone"]
+        )
+        logger.info(f"   ML risk score (Live Calibrated v3.0): {risk_score:.4f}")
     except Exception as exc:
         logger.error(f"   Risk model prediction failed: {exc}")
         # Return a structured error so the frontend can degrade gracefully

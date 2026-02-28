@@ -41,14 +41,61 @@ class TerrainAnalyzer:
             return
         self.gee_available = True
 
-    def fetch_dem(self, lat, lon, buffer_degrees=0.05):
+    def fetch_dem(self, lat, lon, buffer_degrees=0.03):
         bbox = [lon - buffer_degrees, lat - buffer_degrees, lon + buffer_degrees, lat + buffer_degrees]
         region = ee.Geometry.BBox(*bbox)
         out_dem = os.path.join(self.work_dir, "raw_dem.tif")
         dem_image = ee.Image("NASA/NASADEM_HGT/001").select('elevation')
+        
+        # Clip to region to avoid huge downloads
         arr = geemap.ee_to_numpy(dem_image, region=region)
+        # Correct lat/lon ordering for geotiff (geemap expects [miny, minx, maxy, maxx])
         geemap.numpy_to_cog(arr.squeeze(), out_dem, bounds=[bbox[1], bbox[0], bbox[3], bbox[2]], crs='EPSG:4326')
         return "raw_dem.tif"
+
+    def get_environmental_context(self, lat, lon):
+        """
+        Fetches global environmental indices from GEE for advanced risk calibration.
+        Returns: {ndvi, soil_moisture, burn_index}
+        """
+        if not self.gee_available:
+            return {"ndvi": 0.5, "soil_moisture": 0.3, "is_burn_zone": False}
+
+        point = ee.Geometry.Point([lon, lat])
+        buffer = point.buffer(500) # 500m radius for environmental context
+
+        # 1. Vegetation Index (NDVI) - Sentinel-2
+        s2 = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED') \
+            .filterBounds(buffer) \
+            .filterDate('2023-01-01', '2024-12-31') \
+            .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 20)) \
+            .median()
+        
+        ndvi = s2.normalizedDifference(['B8', 'B4']).rename('ndvi')
+        ndvi_val = ndvi.reduceRegion(ee.Reducer.mean(), buffer, 30).get('ndvi').getInfo()
+
+        # 2. Daily Soil Moisture (SMAP)
+        smap = ee.ImageCollection("NASA/SMAP/SPL4SMGP/007") \
+            .filterBounds(buffer) \
+            .sort('system:time_start', False) \
+            .first()
+        
+        # sm_surface: surface soil moisture
+        moisture_val = smap.select('sm_surface').reduceRegion(ee.Reducer.mean(), buffer, 1000).get('sm_surface').getInfo()
+
+        # 3. Burn Scars (MODIS)
+        burn = ee.ImageCollection("MODIS/006/MCD64A1") \
+            .filterBounds(buffer) \
+            .filterDate('2022-01-01', '2024-12-31') \
+            .max()
+        
+        burn_val = burn.select('BurnDate').reduceRegion(ee.Reducer.max(), buffer, 500).get('BurnDate').getInfo()
+
+        return {
+            "ndvi": float(ndvi_val) if ndvi_val else 0.4,
+            "soil_moisture": float(moisture_val) if moisture_val else 0.2,
+            "is_burn_zone": burn_val is not None and burn_val > 0
+        }
 
     def process_hydrology(self, raw_dem_name):
         logger.info("Phase 3: Cleaning terrain physics...")

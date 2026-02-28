@@ -358,6 +358,19 @@
             <div class="metric-label">Live Rainfall</div>
             <div id="live-rainfall" class="metric-value blue" style="font-size: 0.9rem;">Auto</div>
         </div>
+        <div class="metric">
+            <div class="metric-label">Vegetation (NDVI)</div>
+            <div id="live-ndvi" class="metric-value" style="font-size: 0.9rem; color: #00FF41;">--</div>
+        </div>
+        <div class="metric">
+            <div class="metric-label">Ground Saturation</div>
+            <div id="live-saturation" class="metric-value" style="font-size: 0.9rem; color: #00F2FF;">--</div>
+        </div>
+        <div class="metric" id="burn-alert-row"
+            style="display: none; border: 1px solid #FF4B2B; padding: 4px; border-radius: 4px; margin-top: 8px;">
+            <div class="metric-label" style="color: #FF4B2B; font-weight: bold;">🔥 BURN ZONE</div>
+            <div class="metric-value" style="color: #FF4B2B;">ACTIVE</div>
+        </div>
     </div>
 
     <!-- Leaflet JS -->
@@ -618,12 +631,31 @@
                 if (result.environment) {
                     document.getElementById('detected-soil').textContent = result.environment.auto_soil_type.toUpperCase();
                     document.getElementById('live-rainfall').textContent = result.environment.auto_rainfall_mm + " mm";
+
+                    // Update New High-Fidelity Metrics
+                    if (result.environment.ndvi !== undefined) {
+                        document.getElementById('live-ndvi').textContent = (result.environment.ndvi * 100).toFixed(1) + "%";
+                    }
+                    if (result.environment.soil_moisture !== undefined) {
+                        document.getElementById('live-saturation').textContent = (result.environment.soil_moisture * 100).toFixed(1) + "%";
+                    }
+
+                    const burnRow = document.getElementById('burn-alert-row');
+                    if (result.environment.is_burn_zone) {
+                        burnRow.style.display = 'flex';
+                        burnRow.style.justifyContent = 'space-between';
+                    } else {
+                        burnRow.style.display = 'none';
+                    }
                 }
 
                 // Update JSON display
                 document.getElementById('json-output').textContent = JSON.stringify(result, null, 2);
 
-                if (result.flow_paths) {
+                // ALWAYS Re-center map to the target coordinates first
+                map.setView([parseFloat(lat), parseFloat(lon)], 13);
+
+                if (result.flow_paths && result.flow_paths.features && result.flow_paths.features.length > 0) {
                     if (dynamicFlowLayer) map.removeLayer(dynamicFlowLayer);
 
                     dynamicFlowLayer = L.geoJSON(result.flow_paths, {
@@ -642,13 +674,6 @@
                             layer.bindPopup(`<strong>Flow Intensity:</strong> ${feature.properties.intensity.toFixed(3)}`);
                         }
                     }).addTo(map);
-
-                    // Robust bounds fitting
-                    setTimeout(() => { map.fitBounds(dynamicFlowLayer.getBounds(), { padding: [50, 50] }); }, 500);
-                }
-                else {
-                    // Recenter map if no paths
-                    map.setView([parseFloat(lat), parseFloat(lon)], 13);
                 }
 
             } catch (error) {
