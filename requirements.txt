@@ -8,3 +8,9 @@ pandas
 numpy
 scikit-learn
 requests
+earthengine-api
+whitebox
+geemap
+rasterio
+geopandas
+geoai
