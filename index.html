@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,7 +12,9 @@
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap"
+        rel="stylesheet">
 
     <style>
         * {
@@ -253,10 +256,21 @@
             font-weight: 600;
         }
 
-        .metric-value.high { color: var(--risk-high); }
-        .metric-value.medium { color: var(--risk-medium); }
-        .metric-value.blue { color: var(--water-blue); }
-        .metric-value.green { color: var(--ui-accent); }
+        .metric-value.high {
+            color: var(--risk-high);
+        }
+
+        .metric-value.medium {
+            color: var(--risk-medium);
+        }
+
+        .metric-value.blue {
+            color: var(--water-blue);
+        }
+
+        .metric-value.green {
+            color: var(--ui-accent);
+        }
 
         /* Animated flow lines */
         @keyframes flow-animation {
@@ -270,6 +284,7 @@
         }
     </style>
 </head>
+
 <body>
     <!-- Sidebar -->
     <div class="sidebar">
@@ -339,10 +354,10 @@
 
         <div class="section-header">API Response (Live)</div>
         <div class="json-output" id="json-output">
-{
-  "status": "ready",
-  "endpoint": "POST /v1/analyze"
-}
+            {
+            "status": "ready",
+            "endpoint": "POST /v1/analyze"
+            }
         </div>
     </div>
 
@@ -354,19 +369,19 @@
         <h3>Risk Analysis Summary</h3>
         <div class="metric">
             <div class="metric-label">Overall Risk Score</div>
-            <div class="metric-value high">0.71</div>
+            <div id="risk-score-value" class="metric-value high">0.71</div>
         </div>
         <div class="metric">
             <div class="metric-label">High Risk Area</div>
-            <div class="metric-value high">20.5 ha</div>
+            <div id="high-risk-area" class="metric-value high">20.5 ha</div>
         </div>
         <div class="metric">
             <div class="metric-label">Medium Risk Area</div>
-            <div class="metric-value medium">41.0 ha</div>
+            <div id="med-risk-area" class="metric-value medium">41.0 ha</div>
         </div>
         <div class="metric">
             <div class="metric-label">Low Risk Area</div>
-            <div class="metric-value green">31.5 ha</div>
+            <div id="low-risk-area" class="metric-value green">31.5 ha</div>
         </div>
     </div>
 
@@ -398,7 +413,7 @@
             "features": [
                 {
                     "type": "Feature",
-                    "properties": {"channel_id": "CH-001", "depth_m": 0.8, "width_m": 1.2, "flow_vol": "high"},
+                    "properties": { "channel_id": "CH-001", "depth_m": 0.8, "width_m": 1.2, "flow_vol": "high" },
                     "geometry": {
                         "type": "LineString",
                         "coordinates": [
@@ -409,7 +424,7 @@
                 },
                 {
                     "type": "Feature",
-                    "properties": {"channel_id": "CH-002", "depth_m": 0.5, "width_m": 0.8, "flow_vol": "medium"},
+                    "properties": { "channel_id": "CH-002", "depth_m": 0.5, "width_m": 0.8, "flow_vol": "medium" },
                     "geometry": {
                         "type": "LineString",
                         "coordinates": [
@@ -420,7 +435,7 @@
                 },
                 {
                     "type": "Feature",
-                    "properties": {"channel_id": "CH-003", "depth_m": 0.4, "width_m": 0.6, "flow_vol": "low"},
+                    "properties": { "channel_id": "CH-003", "depth_m": 0.4, "width_m": 0.6, "flow_vol": "low" },
                     "geometry": {
                         "type": "LineString",
                         "coordinates": [
@@ -431,7 +446,7 @@
                 },
                 {
                     "type": "Feature",
-                    "properties": {"channel_id": "CH-004", "depth_m": 0.9, "width_m": 1.4, "flow_vol": "high"},
+                    "properties": { "channel_id": "CH-004", "depth_m": 0.9, "width_m": 1.4, "flow_vol": "high" },
                     "geometry": {
                         "type": "LineString",
                         "coordinates": [
@@ -448,7 +463,7 @@
             "features": [
                 {
                     "type": "Feature",
-                    "properties": {"zone_id": "RZ-01", "risk": "high", "risk_score": 0.87, "area_ha": 12.4},
+                    "properties": { "zone_id": "RZ-01", "risk": "high", "risk_score": 0.87, "area_ha": 12.4 },
                     "geometry": {
                         "type": "Polygon",
                         "coordinates": [[
@@ -459,7 +474,7 @@
                 },
                 {
                     "type": "Feature",
-                    "properties": {"zone_id": "RZ-02", "risk": "high", "risk_score": 0.79, "area_ha": 8.1},
+                    "properties": { "zone_id": "RZ-02", "risk": "high", "risk_score": 0.79, "area_ha": 8.1 },
                     "geometry": {
                         "type": "Polygon",
                         "coordinates": [[
@@ -470,7 +485,7 @@
                 },
                 {
                     "type": "Feature",
-                    "properties": {"zone_id": "RZ-03", "risk": "medium", "risk_score": 0.51, "area_ha": 18.7},
+                    "properties": { "zone_id": "RZ-03", "risk": "medium", "risk_score": 0.51, "area_ha": 18.7 },
                     "geometry": {
                         "type": "Polygon",
                         "coordinates": [[
@@ -481,7 +496,7 @@
                 },
                 {
                     "type": "Feature",
-                    "properties": {"zone_id": "RZ-04", "risk": "medium", "risk_score": 0.44, "area_ha": 22.3},
+                    "properties": { "zone_id": "RZ-04", "risk": "medium", "risk_score": 0.44, "area_ha": 22.3 },
                     "geometry": {
                         "type": "Polygon",
                         "coordinates": [[
@@ -492,7 +507,7 @@
                 },
                 {
                     "type": "Feature",
-                    "properties": {"zone_id": "RZ-05", "risk": "low", "risk_score": 0.21, "area_ha": 31.5},
+                    "properties": { "zone_id": "RZ-05", "risk": "low", "risk_score": 0.21, "area_ha": 31.5 },
                     "geometry": {
                         "type": "Polygon",
                         "coordinates": [[
@@ -532,7 +547,7 @@
         // Add Risk Layer (must be below Flow Layer)
         const riskLayer = L.geoJSON(RISK_ZONES, {
             style: getRiskStyle,
-            onEachFeature: function(feature, layer) {
+            onEachFeature: function (feature, layer) {
                 const props = feature.properties;
                 layer.bindPopup(`
                     <div style="font-family: 'DM Sans', sans-serif; font-size: 13px;">
@@ -585,17 +600,19 @@
         }).addTo(map);
         */
 
+        let dynamicFlowLayer = null;
+
         // Rainfall slider update
         const rainfallSlider = document.getElementById('rainfall');
         const rainfallValue = document.getElementById('rainfall-value');
 
-        rainfallSlider.addEventListener('input', function() {
+        rainfallSlider.addEventListener('input', function () {
             rainfallValue.textContent = this.value;
             // TODO: Update risk zones and flow thickness based on rainfall
         });
 
         // Run Analysis function
-        function runAnalysis() {
+        async function runAnalysis() {
             const lat = document.getElementById('lat').value;
             const lon = document.getElementById('lon').value;
             const radius = document.getElementById('radius').value;
@@ -603,27 +620,79 @@
             const soil = document.getElementById('soil').value;
             const season = document.getElementById('season').value;
 
-            // Update JSON output
-            const jsonOutput = {
-                "status": "analyzing",
-                "input": {
-                    "lat": parseFloat(lat),
-                    "lon": parseFloat(lon),
-                    "radius_km": parseInt(radius),
-                    "rainfall_mm": parseInt(rainfall),
-                    "soil_type": soil,
-                    "season": season
-                },
-                "timestamp": new Date().toISOString()
+            // UI Feedback: Set to analyzing state
+            document.getElementById('json-output').textContent = "Analyzing...";
+            const btn = document.querySelector('.btn-analyze');
+            btn.textContent = "⌛ ANALYZING...";
+            btn.disabled = true;
+
+            const inputData = {
+                "latitude": parseFloat(lat),
+                "longitude": parseFloat(lon),
+                "radius": parseFloat(radius),
+                "rainfall_mm": parseFloat(rainfall),
+                "soil_type": soil
             };
 
-            document.getElementById('json-output').textContent = JSON.stringify(jsonOutput, null, 2);
+            try {
+                const response = await fetch('http://localhost:8000/v1/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(inputData)
+                });
 
-            // Recenter map
-            map.setView([parseFloat(lat), parseFloat(lon)], 13);
+                if (!response.ok) throw new Error(`Server error: ${response.status}`);
 
-            // TODO: Make actual API call when backend is ready
-            console.log('Analysis requested:', jsonOutput);
+                const result = await response.json();
+                const score = result.risk_score;
+
+                // Update Risk Score UI
+                const scoreEl = document.getElementById('risk-score-value');
+                scoreEl.textContent = score.toFixed(2);
+
+                // Dynamic colors based on score
+                scoreEl.className = 'metric-value';
+                if (score > 0.7) scoreEl.classList.add('high');
+                else if (score > 0.4) scoreEl.classList.add('medium');
+                else scoreEl.classList.add('green');
+
+                // Update JSON display
+                document.getElementById('json-output').textContent = JSON.stringify(result, null, 2);
+
+                // Update Flow Paths (Terrain Engine Output)
+                if (result.flow_paths) {
+                    if (dynamicFlowLayer) map.removeLayer(dynamicFlowLayer);
+
+                    dynamicFlowLayer = L.geoJSON(result.flow_paths, {
+                        pointToLayer: function (feature, latlng) {
+                            return L.circleMarker(latlng, {
+                                radius: Math.min(feature.properties.intensity * 2, 8),
+                                fillColor: "#00F2FF",
+                                color: "#00F2FF",
+                                weight: 1,
+                                opacity: 0.8,
+                                fillOpacity: 0.6
+                            });
+                        },
+                        onEachFeature: function (feature, layer) {
+                            layer.bindPopup(`Flow Intensity: ${feature.properties.intensity.toFixed(2)}`);
+                        }
+                    }).addTo(map);
+
+                    // Zoom to fit the new flow paths
+                    map.fitBounds(dynamicFlowLayer.getBounds());
+                } else {
+                    // Recenter map if no paths
+                    map.setView([parseFloat(lat), parseFloat(lon)], 13);
+                }
+
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('json-output').textContent = `Error: ${error.message}`;
+            } finally {
+                btn.textContent = "▶ RUN ANALYSIS";
+                btn.disabled = false;
+            }
         }
 
         // Add CSS animation for flow lines
@@ -636,4 +705,5 @@
         document.head.appendChild(style);
     </script>
 </body>
+
 </html>
