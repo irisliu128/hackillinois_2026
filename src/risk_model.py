@@ -34,11 +34,19 @@ def _featurize(lat: float, lon: float, feature_order: list[str]) -> pd.DataFrame
     }
     return pd.DataFrame([row])[feature_order]
 
-def predict(lat: float, lon: float, rainfall_mm: float = 0.0, soil_type: str = "loam", model_path: str | Path | None = None) -> float:
+def predict(
+    lat: float, 
+    lon: float, 
+    rainfall_mm: float = 0.0, 
+    soil_type: str = "loam",
+    ndvi: float = 0.5,
+    soil_moisture: float = 0.2,
+    is_burn_zone: bool = False,
+    model_path: str | Path | None = None
+) -> float:
     """
     Return landslide risk probability (0.0–1.0) for the given coordinate.
-    Calculates a base probability from the ML model, then applies a
-    Live Calibration factor based on real-time Rainfall and Soil data.
+    Version 3.0: Multi-Factor Fusion (ML + Climate + GEE Satellite Indices).
     """
     art = load(model_path)
     model = art["model"]
@@ -46,29 +54,38 @@ def predict(lat: float, lon: float, rainfall_mm: float = 0.0, soil_type: str = "
     X = _featurize(lat, lon, features)
     base_prob = float(model.predict_proba(X)[0, 1])
     
-    # ── Live Calibration (Environmental Adjustment) ─────────────────────────
-    # The ML model provides a 'Historical/Geological Baseline'. 
-    # We adjust this for 'Live' conditions.
-    
+    # ── High-Fidelity Calibration ──────────────────────────────────────────
     multiplier = 1.0
     
-    # 1. Rainfall Impact: Landslides are hydraulic events. 
-    # If it's bone dry (0mm rain), we still respect the historical baseline 
-    # but apply a slight reduction (e.g. 70% of baseline).
+    # 1. Rainfall Thresholds
     if rainfall_mm < 1.0:
         multiplier *= 0.7 
-    elif rainfall_mm > 5.0:  # Active precipitation
-        multiplier *= 1.2
-    elif rainfall_mm > 30.0: # Severe weather
-        multiplier *= 1.8
+    elif rainfall_mm > 30.0: 
+        multiplier *= 2.0 # Severe weather spike
 
-    # 2. Soil Impact: Clay is slippery when wet; Sand drains.
+    # 2. Soil Type (Clay is high risk)
     if soil_type == "clay":
         multiplier *= 1.2
-    elif soil_type == "sandy":
-        multiplier *= 0.8
-    else: # Loam/Unknown
-        multiplier *= 1.0
 
+    # 3. 🌳 Vegetation Stability (NDVI: 0 to 1)
+    if ndvi > 0.6:
+        multiplier *= 0.7 
+    elif ndvi < 0.25:
+        multiplier *= 1.2 # Slightly lower penalty for low vegetation
+
+    # 4. 🪵 Soil Moisture History (Saturation Index)
+    if soil_moisture > 0.35:
+        multiplier *= 1.5 
+
+    # 5. 🔥 Burn Scar Impact
+    if is_burn_zone:
+        multiplier *= 2.0 
+
+    # 6. 🏗️ Urban Infrastructure
+    is_urban = (32.0 < lat < 49.0) and (-125.0 < lon < -117.0) 
+    if is_urban:
+        multiplier *= 0.4 # 60% safety bonus for engineered cities
+
+    # logger.info(f"CALC: base={base_prob:.2f} multi={multiplier:.2f} ndvi={ndvi:.2f} soil={soil_type}")
     final_prob = float(np.clip(base_prob * multiplier, 0.0, 1.0))
     return final_prob
