@@ -1,6 +1,7 @@
 import streamlit as st
 import pydeck as pdk
 import json
+import requests
 
 # ── Page config ────────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -427,11 +428,43 @@ with col_map:
 with col_stats:
     st.markdown("<div class='section-header' style='margin-top:0'>ANALYSIS SUMMARY</div>", unsafe_allow_html=True)
 
-    st.markdown("""
+    # Call backend if button clicked
+    risk_score = 0.71  # Default demo value
+    risk_msg = "High — immediate attention advised"
+    risk_class = "risk-high"
+    
+    if analyze:
+        try:
+            payload = {
+                "latitude": lat,
+                "longitude": lon,
+                "radius": float(radius_km.split()[0]),
+                "rainfall_mm": float(rainfall_mm),
+                "soil_type": soil
+            }
+            resp = requests.post("http://localhost:8000/v1/analyze", json=payload)
+            if resp.status_code == 200:
+                data = resp.json()
+                risk_score = data.get("risk_score", 0.71)
+                if risk_score > 0.7:
+                    risk_msg = "High — immediate attention advised"
+                    risk_class = "risk-high"
+                elif risk_score > 0.4:
+                    risk_msg = "Medium — monitor closely"
+                    risk_class = "risk-medium"
+                else:
+                    risk_msg = "Low — normal operations"
+                    risk_class = "risk-low"
+            else:
+                st.error(f"Backend Error: {resp.status_code}")
+        except Exception as e:
+            st.error(f"Connection Error: {e}")
+
+    st.markdown(f"""
         <div class='metric-card'>
             <div class='metric-label'>Overall Risk Score</div>
-            <div class='metric-value risk-high'>0.71</div>
-            <div class='metric-sub'>High — immediate attention advised</div>
+            <div class='metric-value {risk_class}'>{risk_score:.2f}</div>
+            <div class='metric-sub'>{risk_msg}</div>
         </div>
     """, unsafe_allow_html=True)
 

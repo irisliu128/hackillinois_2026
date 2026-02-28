@@ -1,5 +1,8 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
+import sys
+from pathlib import Path
+from src.risk_model import predict
 
 app = FastAPI(title="FloodGuard API")
 
@@ -16,7 +19,11 @@ def health():
 
 @app.post("/v1/analyze")
 async def analyze(request: AnalyzeRequest):
+    # Call the ML model
+    risk_score = predict(request.latitude, request.longitude)
+    
     return {
-        "message": "coming soon",
-        "received": request
+        "risk_score": float(risk_score),
+        "status": "success",
+        "input_params": request
     }
