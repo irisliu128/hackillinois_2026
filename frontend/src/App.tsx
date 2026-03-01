@@ -5,47 +5,61 @@ import { MapInfo } from './components/MapInfo';
 import type { AnalysisParams, AnalysisResponse } from './types';
 
 function App() {
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<AnalysisResponse | null>(null);
-  const [jsonOutput, setJsonOutput] = useState(JSON.stringify({ status: "ready" }, null, 2));
+  const [jsonOutput, setJsonOutput] = useState(JSON.stringify(
+    {
+      status: "ready",
+      endpoint: "POST /v1/analyze"
+    },
+    null,
+    2
+  ));
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [currentAnalysis, setCurrentAnalysis] = useState<AnalysisResponse | null>(null);
 
   const handleAnalyze = async (params: AnalysisParams) => {
-    setLoading(true);
-    setJsonOutput(JSON.stringify({ status: "analyzing", ...params }, null, 2));
+    // 1. Set UI to loading state
+    setIsAnalyzing(true);
+    setJsonOutput(JSON.stringify({ status: "analyzing...", ...params }, null, 2));
 
     try {
+      // 2. Make the REAL call to your FastAPI backend
       const response = await fetch('http://localhost:8000/v1/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           latitude: params.lat,
           longitude: params.lon,
-          radius: params.radius
-        })
+          radius: params.radius // Match the backend AnalyzeRequest schema
+        }),
       });
 
-      if (!response.ok) throw new Error(`API Error: ${response.status}`);
-
       const data = await response.json();
-      setResult(data);
+
+      // 3. Update the sidebar with the actual risk score and flow paths
       setJsonOutput(JSON.stringify(data, null, 2));
-    } catch (err: any) {
-      setJsonOutput(JSON.stringify({ status: "error", message: err.message }, null, 2));
-    } finally {
-      setLoading(false);
+
+      // 4. Update the map (Person 4 will use this data to draw lines)
+      console.log('Real-time Analysis Received:', data);
+
+      // Update state for MapComponent and MapInfo
+      if (data.status === 'success') {
+        setCurrentAnalysis(data);
+      }
+
+      setIsAnalyzing(false);
+
+    } catch (error) {
+      setJsonOutput(JSON.stringify({ status: "error", message: "Backend unreachable", details: String(error) }, null, 2));
+      setIsAnalyzing(false);
     }
   };
 
   return (
     <div className="app-container">
-      <Sidebar onAnalyze={handleAnalyze} jsonOutput={jsonOutput} loading={loading} />
+      <Sidebar onAnalyze={handleAnalyze} jsonOutput={jsonOutput} isAnalyzing={isAnalyzing} />
       <div className="map-container">
-        <MapComponent
-          center={[result?.environment ? result.input_params?.latitude || 37.77 : 37.77, result?.input_params?.longitude || -122.41]}
-          flowPaths={result?.flow_paths}
-          key={result?.timestamp}
-        />
-        <MapInfo result={result} />
+        <MapComponent currentAnalysis={currentAnalysis} />
+        <MapInfo currentAnalysis={currentAnalysis} />
       </div>
     </div>
   );
