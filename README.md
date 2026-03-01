@@ -28,22 +28,44 @@ The Risk Score (`0.0 - 1.0`) is a weighted fusion of:
 
 ---
 
-## 🚀 How to Run (For Team Members)
+## 🚀 How to Run (For Team Members / Fresh Clones)
 
 ### 1. Setup Environment
-Ensure your `.env` file has the following (Ask Arul or Tanish for keys):
+Copy the example environment file and fill in your actual keys (Ask Arul or Tanish for keys if you don't have them):
+```powershell
+cp .env.example .env
+```
+Ensure your `.env` file has the following populated:
 ```text
+SUPABASE_URL="your_supabase_url_here"
+SUPABASE_KEY="your_supabase_anon_key_here"
 GEE_PROJECT_ID=hydroproject-488807
 OPENWEATHER_API_KEY=your_key_here
 ```
 
 ### 2. Start the Integrated Backend
-The backend serves the **FastAPI JSON API** and the **Satellite Dashboard**.
+The backend serves the **FastAPI JSON API** and powers the ML Risk Model. Open a terminal in the root directory:
 ```powershell
+# Create and activate virtual environment (Windows)
+python -m venv venv
+.\venv\Scripts\activate
+
+# Install requirements
+pip install -r requirements.txt
+
+# Run the server
 .\venv\Scripts\python.exe -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
-- **Access UI**: `http://localhost:8000`
 - **Access API Docs**: `http://localhost:8000/docs`
+
+### 3. Start the React Frontend
+The frontend is a Vite + React application. Open a *second* terminal window and navigate to the frontend folder:
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+- **Access UI**: Usually `http://localhost:5173` (Check your terminal output for the exact local URL).
 
 ---
 
