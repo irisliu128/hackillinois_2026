@@ -5,9 +5,10 @@ interface SidebarProps {
   onAnalyze: (params: AnalysisParams) => void;
   jsonOutput: string;
   isAnalyzing: boolean;
+  onDocsToggle: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ onAnalyze, jsonOutput, isAnalyzing }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ onAnalyze, jsonOutput, isAnalyzing, onDocsToggle }) => {
   const [latStr, setLatStr] = useState("21.710");
   const [lonStr, setLonStr] = useState("104.878");
   const [radius, setRadius] = useState(5);
@@ -18,7 +19,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ onAnalyze, jsonOutput, isAnaly
 
   return (
     <div className="sidebar">
-      <div className="logo">Terra<span>Sight</span></div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
+        <div className="logo">Terra<span>Sight</span></div>
+        <button className="btn-docs-toggle" onClick={onDocsToggle}>API Docs</button>
+      </div>
       <div className="tagline">Decision Support for Agricultural NGOs</div>
       <span className="status-badge">● LIVE MODE</span>
 

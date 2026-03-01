@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { MapComponent } from './components/MapComponent';
 import { MapInfo } from './components/MapInfo';
+import { ApiDocs } from './components/ApiDocs';
 import type { AnalysisParams, AnalysisResponse } from './types';
 
 function App() {
@@ -15,6 +16,7 @@ function App() {
   ));
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [currentAnalysis, setCurrentAnalysis] = useState<AnalysisResponse | null>(null);
+  const [showDocs, setShowDocs] = useState(false);
 
   const handleAnalyze = async (params: AnalysisParams) => {
     // 1. Set UI to loading state
@@ -61,11 +63,20 @@ function App() {
 
   return (
     <div className="app-container">
-      <Sidebar onAnalyze={handleAnalyze} jsonOutput={jsonOutput} isAnalyzing={isAnalyzing} />
-      <div className="map-container">
-        <MapComponent currentAnalysis={currentAnalysis} />
-        <MapInfo currentAnalysis={currentAnalysis} />
-      </div>
+      <Sidebar
+        onAnalyze={handleAnalyze}
+        jsonOutput={jsonOutput}
+        isAnalyzing={isAnalyzing}
+        onDocsToggle={() => setShowDocs(!showDocs)}
+      />
+      {showDocs ? (
+        <ApiDocs onClose={() => setShowDocs(false)} />
+      ) : (
+        <div className="map-container">
+          <MapComponent currentAnalysis={currentAnalysis} />
+          <MapInfo currentAnalysis={currentAnalysis} />
+        </div>
+      )}
     </div>
   );
 }
