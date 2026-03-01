@@ -107,7 +107,7 @@ async def _startup():
 
 # ── Static files — serve index.html from the project root ───────────────────
 #    Mount after routes so /v1/* is matched first.
-_STATIC_DIR = Path(__file__).parent  # directory that contains index.html
+_STATIC_DIR = Path(__file__).parent / "static"  # directory that contains index.html
 
 # ── Pydantic schema ───────────────────────────────────────────────────────────
 class AnalyzeRequest(BaseModel):
