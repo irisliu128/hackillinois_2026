@@ -81,21 +81,6 @@ _POLL_TARGETS: list[dict] = [
 async def _startup():
     global _terrain_analyzer, _adaptive_scaler
 
-    # 1. Warm up the ML model (caches internally via _ARTIFACT global)
-    try:
-        load_risk_model()
-        logger.info("✅  Risk model loaded and cached.")
-    except Exception as exc:
-        logger.error(f"❌  Risk model failed to load: {exc}")
-
-    # 2. Initialise TerrainAnalyzer (also triggers GEE auth)
-    try:
-        _terrain_analyzer = TerrainAnalyzer(work_dir="./data/terrain_cache")
-        logger.info("✅  TerrainAnalyzer initialised.")
-    except Exception as exc:
-        logger.warning(f"⚠️  TerrainAnalyzer init failed — terrain features disabled: {exc}")
-        _terrain_analyzer = None
-
     # 3. Start the Adaptive Polling Engine background loop
     _adaptive_scaler = AdaptiveScaler(supabase)
     if _POLL_TARGETS:
@@ -164,6 +149,14 @@ async def analyze(req: AnalyzeRequest):
     soil_type: str = fetch_soil_type(req.latitude, req.longitude)
     
     # NEW: Fetch satellite indices from Terrain Engine (GEE)
+    global _terrain_analyzer
+    if _terrain_analyzer is None:
+        try:
+            _terrain_analyzer = TerrainAnalyzer(work_dir="./data/terrain_cache")
+            logger.info("✅  TerrainAnalyzer lazy-initialised.")
+        except Exception as exc:
+            logger.warning(f"⚠️  TerrainAnalyzer lazy init failed: {exc}")
+
     satellite_context = {"ndvi": 0.5, "soil_moisture": 0.2, "is_burn_zone": False}
     if _terrain_analyzer:
         try:
