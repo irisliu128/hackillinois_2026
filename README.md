@@ -36,28 +36,29 @@ Ensure your `.env` file has the following (Ask Arul or Tanish for keys):
 GEE_PROJECT_ID=hydroproject-488807
 OPENWEATHER_API_KEY=your_key_here
 ```
+> **Note on Backup/Clones**: The `.env` file is intentionally ignored by `.gitignore` for security. If you clone this repository to a new machine or pull it from the backup personal branch, you **must manually transfer** or recreate the `.env` file.
 
 ### 2. Start the Integrated Backend
-The backend serves the **FastAPI JSON API** and the **Satellite Dashboard**.
+The backend serves the **FastAPI Streaming API** and the frontend application connects to it.
 ```powershell
 .\venv\Scripts\python.exe -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
-- **Access UI**: `http://localhost:8000`
 - **Access API Docs**: `http://localhost:8000/docs`
 
----
-
-## 🧠 Brain Logic (v4.0 Multi-Factor Fusion)
-The Risk Score (`0.0 - 1.0`) is a weighted fusion of:
-1. **Historical Baseline (ML)**: Geological history of the coordinates.
-2. **Current Precipitation**: Multiplier spikes if Live Rain > 30mm.
-3. **Vegetation Bonus**: Forests (High NDVI) reduce risk by ~30%.
-4. **Saturation Penalty**: Saturated ground (NASA SMAP > 35%) increases risk by 1.5x.
-5. **Urban Offset**: Major cities (e.g. SF/Seattle) get a 50% stability bonus for engineered drainage.
+### 3. Start the Frontend
+In a new terminal:
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+- **Access UI**: `http://localhost:3000` (or the port Vite provides)
 
 ---
 
 ## 📡 API Reference (POST `/v1/analyze`)
+
+The backend now uses **Server-Sent Events (SSE)** via FastAPI's `StreamingResponse` to push real-time pipeline progress to the client, solving UX blockers during 10-20 second Earth Engine/Hydrology analyses.
 
 **Request:**
 ```json
@@ -68,19 +69,19 @@ The Risk Score (`0.0 - 1.0`) is a weighted fusion of:
 }
 ```
 
-**Response (Relevant for Visualizer):**
-```json
-{
+**Streamed Response (SSE `text/event-stream`):**
+```text
+data: {"log": "Locating Coordinates & Validating Geography..."}
+
+data: {"log": "Fetching 7-Day Weather Forecast & Soil Data..."}
+
+data: {"log": "Calculating ML Predictive Risk Forecast..."}
+
+data: {"log": "Running Hydrology Pipeline (GEE + WhiteboxTools) ... This may take 10-20 seconds."}
+
+data: {
   "risk_score": 0.4215,
-  "risk_forecast": [
-    0.4215,
-    0.4503,
-    0.4901,
-    0.6850,
-    0.8012,
-    0.8012,
-    0.7915
-  ],
+  "risk_forecast": [0.4215, 0.4503, 0.4901, 0.6850, 0.8012, 0.8012, 0.7915],
   "environment": {
     "auto_rainfall_mm": 0.0,
     "auto_soil_type": "loam",
@@ -88,16 +89,18 @@ The Risk Score (`0.0 - 1.0`) is a weighted fusion of:
     "soil_moisture": 0.15,
     "is_burn_zone": false
   },
-  "flow_paths": { ... }
+  "flow_paths": { ... },
+  "status": "success"
 }
 ```
 
 ---
 
 ## 🧪 System Verification
-To ensure your visualizer changes haven't broken the logic or API orchestration, run the global verification suite:
+To ensure your visualizer changes haven't broken the logic or API orchestration, run the global verification and smoke tests:
 ```powershell
 .\venv\Scripts\python.exe verification_suite.py
+.\venv\Scripts\python.exe smoke_test.py
 ```
 
 ---
