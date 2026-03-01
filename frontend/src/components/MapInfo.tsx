@@ -21,17 +21,21 @@ export const MapInfo: React.FC<MapInfoProps> = ({ currentAnalysis }) => {
         <div className="metric-label">Overall Risk Score</div>
         <div className={`metric-value ${scoreClass}`}>{displayScore}</div>
       </div>
-      <div className="metric">
-        <div className="metric-label">High Risk Area</div>
-        <div className="metric-value high">{currentAnalysis ? "--" : "20.5"} ha</div>
-      </div>
-      <div className="metric">
-        <div className="metric-label">Medium Risk Area</div>
-        <div className="metric-value medium">{currentAnalysis ? "--" : "41.0"} ha</div>
-      </div>
-      <div className="metric">
-        <div className="metric-label">Low Risk Area</div>
-        <div className="metric-value green">{currentAnalysis ? "--" : "31.5"} ha</div>
+
+      <div style={{ marginTop: '20px' }}>
+        <div style={{ fontSize: '0.9em', fontWeight: '600', color: '#8b9bb4', marginBottom: '10px' }}>Legend</div>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+          <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#FF4B2B', marginRight: '8px' }}></div>
+          <span style={{ fontSize: '0.85em', color: '#d1dae6' }}>High Risk Zone (mudslide)</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+          <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#FFA41B', marginRight: '8px' }}></div>
+          <span style={{ fontSize: '0.85em', color: '#d1dae6' }}>Medium Risk Zone</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#00d4aa', marginRight: '8px' }}></div>
+          <span style={{ fontSize: '0.85em', color: '#d1dae6' }}>Low Risk Zone</span>
+        </div>
       </div>
     </div>
   );

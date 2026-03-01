@@ -8,8 +8,8 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ onAnalyze, jsonOutput, isAnalyzing }) => {
-  const [latStr, setLatStr] = useState("-13.1631");
-  const [lonStr, setLonStr] = useState("-72.5450");
+  const [latStr, setLatStr] = useState("21.710");
+  const [lonStr, setLonStr] = useState("104.878");
   const [radius, setRadius] = useState(5);
 
   const handleAnalyze = () => {
@@ -65,20 +65,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ onAnalyze, jsonOutput, isAnaly
       <button className="btn-analyze" onClick={handleAnalyze} disabled={isAnalyzing}>
         {isAnalyzing ? '⏳ ANALYZING (GEE takes 10-20s)...' : '▶ RUN ANALYSIS'}
       </button>
-
-      <div className="section-header">Legend</div>
-      <div className="legend-item">
-        <div className="legend-dot" style={{ background: '#FF4B2B' }}></div>
-        <span>High Risk Zone (mudslide)</span>
-      </div>
-      <div className="legend-item">
-        <div className="legend-dot" style={{ background: '#FFA41B' }}></div>
-        <span>Medium Risk Zone</span>
-      </div>
-      <div className="legend-item">
-        <div className="legend-dot" style={{ background: '#00d4aa' }}></div>
-        <span>Low Risk Zone</span>
-      </div>
 
       <div className="section-header">API Response (Live)</div>
       <div className="json-output">{jsonOutput}</div>
