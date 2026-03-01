@@ -2,11 +2,6 @@
 
 TerraSight provides RESTful endpoints for real-time hydrological routing and landslide risk assessment in topographically complex regions. Powered by FastAPI, WhiteboxTools, and Google Earth Engine (GEE), the platform bridges raw satellite data and actionable field intelligence to provide sub-20 second processing.
 
-## Base URL
-
-```text
-https://api.terrasight.example.com
-```
 
 ## Authentication
 
