@@ -44,18 +44,6 @@ export const MapInfo: React.FC<MapInfoProps> = ({ currentAnalysis }) => {
         <div className={`metric-value ${futureScoreClass}`} style={{ fontSize: "1.4em", fontWeight: "bold" }}>{displayFutureScore}</div>
       </div>
 
-      <div className="metric">
-        <div className="metric-label">High Risk Area</div>
-        <div className="metric-value high">{currentAnalysis ? "--" : "20.5"} ha</div>
-      </div>
-      <div className="metric">
-        <div className="metric-label">Medium Risk Area</div>
-        <div className="metric-value medium">{currentAnalysis ? "--" : "41.0"} ha</div>
-      </div>
-      <div className="metric">
-        <div className="metric-label">Low Risk Area</div>
-        <div className="metric-value green">{currentAnalysis ? "--" : "31.5"} ha</div>
-      </div>
     </div>
   );
 };
