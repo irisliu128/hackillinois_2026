@@ -1,17 +1,17 @@
-# TerraSight API Reference Manual
+# TerraSight API Reference Manual (v1.0.0)
 
-TerraSight provides RESTful endpoints for real-time hydrological routing and landslide risk assessment in topographically complex regions. Powered by FastAPI, WhiteboxTools, and Google Earth Engine (GEE), the platform bridges raw satellite data and actionable field intelligence to provide sub-20 second processing.
+TerraSight provides RESTful endpoints for real-time hydrological routing and landslide risk assessment. By bridging Google Earth Engine (GEE) terrain data with Random Forest ML models, the platform delivers actionable intelligence for topographically complex regions in under 20 seconds.
 
 ---
 
-## System
+## 🏥 System
 
 ### Health Check
 **`GET /v1/health`**
 
-Validates system status and checks if the Terrain Engine is active.
+Validates system connectivity and confirms the Terrain Engine (WhiteboxTools/GEE) is ready for processing.
 
-**Response (`200 OK`)**
+**Response (200 OK)**
 ```json
 {
   "status": "ok",
@@ -22,25 +22,22 @@ Validates system status and checks if the Terrain Engine is active.
 
 ---
 
-## Analysis
+## 🛰 Analysis
 
-### 1. Execute Analysis Pipeline
+### Execute Analysis Pipeline
 **`POST /v1/analyze`**
 
-The primary ingress for geospatial risk analysis. Evaluates a geographic point combining machine learning likelihood (Random Forest + NASA Landslide Catalog data), live weather tracking, satellite vegetation indices (NDVI), and soil moisture.
+The core engine of TerraSight. It calculates landslide susceptibility by merging NASA Landslide Catalog heuristics with live environmental data.
 
-**Request Body (JSON Schema)**
-```json
-{
-  "latitude": 22.57,
-  "longitude": 88.36,
-  "radius": 5.0
-}
-```
-*(Note: `latitude` and `longitude` must reside on land).*
+**Request Body (JSON)**
 
-**Successful Response (`200 OK`)**
-Returns the computed risk score and immediate metadata.
+| Parameter | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `latitude` | number | [−90.0, 90.0] | Geographic latitude (Must be on land). |
+| `longitude` | number | [−180.0, 180.0] | Geographic longitude. |
+| `radius` | number | > 0 | Search radius in kilometers. |
+
+**Successful Response (200 OK)**
 ```json
 {
   "risk_score": 0.84,
@@ -53,11 +50,6 @@ Returns the computed risk score and immediate metadata.
     "is_burn_zone": false
   },
   "status": "success",
-  "input_params": {
-    "latitude": 22.57,
-    "longitude": 88.36,
-    "radius": 5.0
-  },
   "metadata": {
     "lat": 22.57,
     "lon": 88.36,
@@ -70,134 +62,82 @@ Returns the computed risk score and immediate metadata.
 
 ---
 
-## Settings
+## ⚙️ Settings
 
 ### 1. Create Settings
 **`POST /v1/settings`**
 
-Create a new user settings session. Returns a session_id for future updates.
+Initializes a new user session. Returns a `session_id` required for updates and adaptive polling.
 
 **Request Body**
-```json
-{
-  "polling_interval_minutes": 1440,
-  "auto_scale": true
-}
-```
-
-**Response (`200 OK`)**
-```json
-{
-  "session_id": "8f8b9e...",
-  "polling_interval_minutes": 1440,
-  "auto_scale": true,
-  "message": "Settings saved successfully"
-}
-```
+- `polling_interval_minutes`: integer (≥1). Default is usually 1440 (24 hours).
+- `auto_scale`: boolean. If true, the system adjusts frequency based on risk.
 
 ### 2. Get Settings
 **`GET /v1/settings/{session_id}`**
 
-Retrieve settings for the given session.
-
-**Response (`200 OK`)**
-```json
-{
-  "session_id": "8f8b9e...",
-  "polling_interval_minutes": 1440,
-  "auto_scale": true,
-  "updated_at": "2026-03-01T10:00:00Z"
-}
-```
+Retrieve the configuration for a specific session.
 
 ### 3. Update Settings
 **`PUT /v1/settings/{session_id}`**
 
-Update polling settings. When `auto_scale=True`, the AdaptiveScaler overrides the manual interval during high-risk conditions.
-
-**Request Body**
-```json
-{
-  "polling_interval_minutes": 720,
-  "auto_scale": true
-}
-```
-
-**Response (`200 OK`)**
-```json
-{
-  "session_id": "8f8b9e...",
-  "polling_interval_minutes": 720,
-  "auto_scale": true,
-  "message": "Settings updated successfully"
-}
-```
+Allows manual overrides. Note that if `auto_scale` is active, the AdaptiveScaler will prioritize high-risk triggers over the manual `polling_interval_minutes`.
 
 ---
 
-## Adaptive Polling
+## 🔄 Adaptive Polling
 
 ### Trigger Poll
 **`POST /v1/poll`**
 
-Manually trigger an adaptive poll evaluation for a specific coordinate. Useful for testing or one-off risk checks outside the background loop. Runs the scaler in the background so the response is immediate.
+Manually forces an adaptive evaluation. This is an asynchronous "fire and forget" call that queues the task in the background.
 
 **Request Body**
 ```json
 {
   "latitude": 22.57,
   "longitude": 88.36,
-  "session_id": "optional-session-id"
-}
-```
-
-**Response (`200 OK`)**
-```json
-{
-  "status": "queued",
-  "message": "Adaptive poll evaluation queued for (22.57, 88.36)."
+  "session_id": "string (optional)"
 }
 ```
 
 ---
 
-## Data Models
+## 📊 Data Models
 
-**Environment Context Schema**
-```json
-{
-  "type": "object",
-  "properties": {
-    "auto_rainfall_mm": { "type": "number", "description": "Millimeters of rain accumulated/forecasted" },
-    "auto_soil_type": { "type": "string", "enum": ["loam", "clay", "sand", "silt"] },
-    "ndvi": { "type": "number", "minimum": -1.0, "maximum": 1.0, "description": "Normalized Difference Vegetation Index" },
-    "soil_moisture": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
-    "is_burn_zone": { "type": "boolean" }
-  }
-}
-```
+### Environment Context
+- `auto_rainfall_mm`: Float. Accumulated or forecasted precipitation.
+- `auto_soil_type`: String Enum: `["loam", "clay", "sand", "silt"]`.
+- `ndvi`: Float ([−1.0, 1.0]). Vegetation density index.
+- `soil_moisture`: Float ([0.0, 1.0]).
 
-**Risk Score Detail**
-The `risk_score` is a float between `0.0` and `1.0`. Scores $>0.7$ conventionally designate severe landslide susceptibility and automatically trigger aggressive adaptive polling.
+### Risk Score Heuristics
+The `risk_score` is a float between 0.0 and 1.0.
+- **Scores > 0.7**: Designate severe susceptibility.
+- **Scores ≤ 0.3**: Designate nominal/stable conditions.
 
 ---
 
-## Error Handling
+## ⚠️ Error Handling
 
-### Data Patchiness (Rural or Ocean Areas)
-
-**`400 Bad Request` — Non-Land Coordinates**
-Thrown exclusively when analysis coordinates fall into marine boundaries. Landslide metrics are irrelevant outside terrestrial zones.
+### 422 Unprocessable Entity — Schema Violation
+Thrown when inputs fall outside defined ranges (e.g., a latitude of 110 or a negative radius).
 ```json
 {
-  "error": "Coordinate is not on land",
-  "detail": "Coordinate (x, y) is located in the ocean. Landslide risk is completely entirely inapplicable.",
-  "risk_score": 0.0,
-  "flow_paths": null,
-  "metadata": {}
+  "detail": [
+    {
+      "loc": ["body", "latitude"],
+      "msg": "Input should be less than or equal to 90",
+      "type": "less_than_equal_to_threshold"
+    }
+  ]
 }
 ```
 
-**`503 Service Unavailable` — Terrain Engine Degraded**
-In regions where satellite altimetry (SRTM / Copernicus) patchiness occurs, GEE fetching may timeout or WhiteboxTools may fail. 
-Instead of a hard failure, the `/v1/analyze` endpoint gracefully degrades. It will return `"flow_paths": null` and append a `warning` key in `metadata`, but *will* still yield the ML `risk_score` based on coordinate heuristics.
+### 400 Bad Request — Non-Land Coordinates
+Thrown when the coordinate resides in the ocean.
+- Landslide risk is entirely inapplicable for marine environments.
+
+### 503 Service Unavailable — Terrain Engine Degraded
+Occurs during SRTM/Copernicus data patchiness or GEE timeouts.
+- **Behavior**: The API will still return a `risk_score` (based on ML heuristics), but `flow_paths` will be null and a warning will be added to the metadata.
