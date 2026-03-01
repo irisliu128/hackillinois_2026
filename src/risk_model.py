@@ -12,6 +12,39 @@ def _default_model_path() -> Path:
     # repo_root/models/risk_model.joblib
     return Path(__file__).resolve().parents[1] / "models" / "risk_model.joblib"
 
+from functools import lru_cache
+
+@lru_cache(maxsize=128)
+def check_urban(lat: float, lon: float) -> bool:
+    import requests
+    import requests_cache
+    from pathlib import Path
+    
+    is_urban = False
+    try:
+        # Resilient Caching: Only query OSM Overpass if we haven't checked this area recently
+        cache_dir = Path("./data/terrain_cache") / "osm_cache"
+        session = requests_cache.CachedSession(str(cache_dir), expire_after=86400) # 24 hour cache
+        
+        # Check OpenStreetMap for urban infrastructure (buildings or major roads) within a ~1km radius
+        bbox = f"{lat - 0.01},{lon - 0.01},{lat + 0.01},{lon + 0.01}" 
+        query = f"""
+        [out:json][timeout:5];
+        (
+          way["highway"~"primary|secondary|tertiary|residential"]({bbox});
+          way["building"]({bbox});
+        );
+        out count;
+        """
+        response = session.post("https://overpass-api.de/api/interpreter", data={"data": query}, timeout=6)
+        if response.status_code == 200:
+            data = response.json()
+            if int(data.get("elements", [{}])[0].get("tags", {}).get("ways", 0)) > 50:
+                 is_urban = True
+    except Exception:
+        pass # If OSM fails or rate-limits, safely default back to rural
+    return is_urban
+
 def load(model_path: str | Path | None = None):
     """Load the saved model artifact once and cache it in memory."""
     global _ARTIFACT
@@ -82,34 +115,7 @@ def predict(
         multiplier *= 2.0 
 
     # 6. 🏗️ Urban Infrastructure
-    import requests
-    import requests_cache
-    from pathlib import Path
-    
-    is_urban = False
-    try:
-        # Resilient Caching: Only query OSM Overpass if we haven't checked this area recently
-        cache_dir = Path("./data/terrain_cache") / "osm_cache"
-        session = requests_cache.CachedSession(str(cache_dir), expire_after=86400) # 24 hour cache
-        
-        # Check OpenStreetMap for urban infrastructure (buildings or major roads) within a 1km radius
-        # Overpass API uses format: (south, west, north, east)
-        bbox = f"{lat - 0.01},{lon - 0.01},{lat + 0.01},{lon + 0.01}" 
-        query = f"""
-        [out:json][timeout:5];
-        (
-          way["highway"~"primary|secondary|tertiary|residential"]({bbox});
-          way["building"]({bbox});
-        );
-        out count;
-        """
-        response = session.post("https://overpass-api.de/api/interpreter", data={"data": query}, timeout=6)
-        if response.status_code == 200:
-            data = response.json()
-            if int(data.get("elements", [{}])[0].get("tags", {}).get("ways", 0)) > 50:
-                 is_urban = True
-    except Exception:
-        pass # If OSM fails or rate-limits, safely default back to rural
+    is_urban = check_urban(round(lat, 3), round(lon, 3))
         
     if is_urban:
         multiplier *= 0.4 # 60% safety bonus for engineered cities

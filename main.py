@@ -186,33 +186,36 @@ async def analyze(req: AnalyzeRequest):
 
     # ── Step 1: ML Risk Score (synchronous but very fast) ────────────────────
     try:
-        # Fusion: ML + Weather + GEE Satellite Indices
-        risk_score: float = risk_predict(
-            req.latitude, 
-            req.longitude, 
-            rainfall_mm=rainfall_mm, 
-            soil_type=soil_type,
-            ndvi=satellite_context["ndvi"],
-            soil_moisture=satellite_context["soil_moisture"],
-            is_burn_zone=satellite_context["is_burn_zone"]
-        )
-        logger.info(f"   ML risk score (Live Calibrated v3.0): {risk_score:.4f}")
-        
-        risk_forecast = []
-        cumulative_rain = rainfall_mm
-        for daily_rain in forecast_7d:
-            cumulative_rain += daily_rain
-            score = risk_predict(
+        def _compute_risks():
+            # Fusion: ML + Weather + GEE Satellite Indices
+            base_score = risk_predict(
                 req.latitude, 
                 req.longitude, 
-                rainfall_mm=cumulative_rain, 
+                rainfall_mm=rainfall_mm, 
                 soil_type=soil_type,
                 ndvi=satellite_context["ndvi"],
                 soil_moisture=satellite_context["soil_moisture"],
                 is_burn_zone=satellite_context["is_burn_zone"]
             )
-            risk_forecast.append(score)
             
+            forecasts = []
+            cum_rain = rainfall_mm
+            for d_rain in forecast_7d:
+                cum_rain += d_rain
+                fs = risk_predict(
+                    req.latitude, 
+                    req.longitude, 
+                    rainfall_mm=cum_rain, 
+                    soil_type=soil_type,
+                    ndvi=satellite_context["ndvi"],
+                    soil_moisture=satellite_context["soil_moisture"],
+                    is_burn_zone=satellite_context["is_burn_zone"]
+                )
+                forecasts.append(fs)
+            return base_score, forecasts
+
+        risk_score, risk_forecast = await asyncio.to_thread(_compute_risks)
+        logger.info(f"   ML risk score (Live Calibrated v3.0): {risk_score:.4f}")
         logger.info(f"   ML forecast score (7-day): {risk_forecast}")
         
     except Exception as exc:

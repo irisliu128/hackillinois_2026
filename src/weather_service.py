@@ -12,11 +12,6 @@ def fetch_rainfall_data(lat: float, lon: float) -> float:
     Fetches the last 24h accumulated rainfall (mm) using OpenWeatherMap API.
     If no rainfall data is found, it returns a default of 0.0.
     """
-    api_key = os.getenv("OPENWEATHER_API_KEY")
-    if not api_key or api_key == "PASTE_YOUR_KEY_HERE":
-        logger.warning("OpenWeatherMap API Key not found. Defaulting rainfall to 0.0mm.")
-        return 0.0
-    
     # Fetch preceding 7 days of rainfall using Open-Meteo Historical API
     from datetime import datetime, timedelta
     
