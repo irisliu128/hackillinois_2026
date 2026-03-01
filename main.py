@@ -18,7 +18,7 @@ from typing import Optional
 
 from fastapi import FastAPI, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -130,163 +130,122 @@ def health():
 @app.post("/v1/analyze", tags=["Analysis"])
 async def analyze(req: AnalyzeRequest):
     """
-    Run the full FloodGuard pipeline:
-      1. ML risk score (fast, always available)
-      2. Terrain hydrology / flow paths via GEE + WhiteboxTools (may be slow or unavailable)
-    
-    If the terrain pipeline fails for any reason the endpoint still returns the
-    ML risk score with flow_paths: null and a warning in metadata.
+    Run the full FloodGuard pipeline with Server-Sent Events (SSE).
     """
-    t0 = time.perf_counter()
-    logger.info(
-        f"→ /v1/analyze  lat={req.latitude:.4f} lon={req.longitude:.4f} radius={req.radius}km"
-    )
-
-    # ── Step 0: Auto-fetch Environment & Validate Geography ─────────────
-    logger.info("   Auto-detecting regional environmental data and geology...")
-    
-    from global_land_mask import globe
-    is_on_land = globe.is_land(req.latitude, req.longitude)
-    if not is_on_land:
-        logger.warning("   Coordinate is in the ocean. Exiting early.")
-        return JSONResponse(
-            status_code=400,
-            content={
-                "error": "Coordinate is not on land",
-                "detail": f"Coordinate ({req.latitude}, {req.longitude}) is located in the ocean. Landslide risk is completely entirely inapplicable.",
-                "risk_score": 0.0,
-                "risk_forecast": [0.0] * 7,
-                "flow_paths": None,
-                "metadata": _build_metadata(req, elapsed=time.perf_counter() - t0),
-            },
-        )
+    async def event_generator():
+        t0 = time.perf_counter()
+        logger.info(f"→ /v1/analyze  lat={req.latitude:.4f} lon={req.longitude:.4f} radius={req.radius}km")
+        
+        yield f'data: {json.dumps({"log": "Locating Coordinates & Validating Geography..."})}\n\n'
+        await asyncio.sleep(0.05)
+        
+        # ── Step 0: Auto-fetch Environment & Validate Geography ─────────────
+        from global_land_mask import globe
+        is_on_land = globe.is_land(req.latitude, req.longitude)
+        if not is_on_land:
+            logger.warning("   Coordinate is in the ocean. Exiting early.")
+            yield f'data: {json.dumps({"error": "Coordinate is not on land", "detail": "Located in the ocean."})}\n\n'
+            return
             
-    rainfall_mm: float = fetch_rainfall_data(req.latitude, req.longitude)
-    rainfall_forecast: list[float] = fetch_rainfall_forecast(req.latitude, req.longitude)
-    soil_type: str = fetch_soil_type(req.latitude, req.longitude)
-    
-    # NEW: Fetch satellite indices from Terrain Engine (GEE)
-    satellite_context = {"ndvi": 0.5, "soil_moisture": 0.2, "is_burn_zone": False}
-    if _terrain_analyzer:
+        yield f'data: {json.dumps({"log": "Fetching 7-Day Weather Forecast & Soil Data..."})}\n\n'
+        await asyncio.sleep(0.05)
+        rainfall_mm: float = fetch_rainfall_data(req.latitude, req.longitude)
+        rainfall_forecast: list[float] = fetch_rainfall_forecast(req.latitude, req.longitude)
+        soil_type: str = fetch_soil_type(req.latitude, req.longitude)
+        
+        yield f'data: {json.dumps({"log": "Fetching GEE Satellite Indices (NDVI, Moisture)..."})}\n\n'
+        await asyncio.sleep(0.05)
+        satellite_context = {"ndvi": 0.5, "soil_moisture": 0.2, "is_burn_zone": False}
+        if _terrain_analyzer:
+            try:
+                satellite_context = await asyncio.to_thread(_terrain_analyzer.get_environmental_context, req.latitude, req.longitude)
+            except Exception as e:
+                logger.warning(f"   Satellite fetch failed, using defaults: {e}")
+                
+        env_data = {
+            "auto_rainfall_mm": rainfall_mm,
+            "auto_soil_type": soil_type,
+            "ndvi": satellite_context["ndvi"],
+            "soil_moisture": satellite_context["soil_moisture"],
+            "is_burn_zone": satellite_context["is_burn_zone"]
+        }
+        
+        yield f'data: {json.dumps({"log": "Calculating ML Predictive Risk Forecast..."})}\n\n'
+        await asyncio.sleep(0.05)
+        # ── Step 1: ML Risk Score ────────────────────
         try:
-            satellite_context = _terrain_analyzer.get_environmental_context(req.latitude, req.longitude)
-        except Exception as e:
-            logger.warning(f"   Satellite fetch failed, using defaults: {e}")
-
-    logger.info(f"   Environment detected: {rainfall_mm}mm rain, soil={soil_type}, ndvi={satellite_context['ndvi']:.2f}")
-    
-    env_data = {
-        "auto_rainfall_mm": rainfall_mm,
-        "auto_soil_type": soil_type,
-        "ndvi": satellite_context["ndvi"],
-        "soil_moisture": satellite_context["soil_moisture"],
-        "is_burn_zone": satellite_context["is_burn_zone"]
-    }
-
-    # ── Step 1: ML Risk Score (synchronous but very fast) ────────────────────
-    try:
-        # Fusion: ML + Weather + GEE Satellite Indices
-        risk_score: float = risk_predict(
-            req.latitude, 
-            req.longitude, 
-            rainfall_mm=rainfall_mm, 
-            soil_type=soil_type,
-            ndvi=satellite_context["ndvi"],
-            soil_moisture=satellite_context["soil_moisture"],
-            is_burn_zone=satellite_context["is_burn_zone"]
-        )
-        logger.info(f"   ML risk score (Live Calibrated v3.0): {risk_score:.4f}")
-
-        # ── Step 1b: ML Risk Forecast (7 next days) ────────────────────
-        risk_forecast = []
-        cumulative_rain = rainfall_mm
-        for daily_rain in rainfall_forecast:
-            cumulative_rain += daily_rain
-            forecast_score = risk_predict(
-                req.latitude, 
-                req.longitude, 
-                rainfall_mm=cumulative_rain, 
-                soil_type=soil_type,
-                ndvi=satellite_context["ndvi"],
-                soil_moisture=satellite_context["soil_moisture"],
+            risk_score: float = risk_predict(
+                req.latitude, req.longitude, 
+                rainfall_mm=rainfall_mm, soil_type=soil_type,
+                ndvi=satellite_context["ndvi"], soil_moisture=satellite_context["soil_moisture"],
                 is_burn_zone=satellite_context["is_burn_zone"]
             )
-            risk_forecast.append(forecast_score)
-        logger.info(f"   ML risk forecast (next 7 days): {risk_forecast}")
-
-    except Exception as exc:
-        logger.error(f"   Risk model prediction failed: {exc}")
-        # Return a structured error so the frontend can degrade gracefully
-        return JSONResponse(
-            status_code=503,
-            content={
-                "error": "Risk model unavailable",
-                "detail": str(exc),
-                "risk_score": None,
-                "risk_forecast": None,
-                "flow_paths": None,
-                "metadata": _build_metadata(req, elapsed=time.perf_counter() - t0),
-            },
-        )
-
-    # ── Step 2: Terrain Pipeline (slow / optional) ───────────────────────────
-    flow_paths = None
-    terrain_warning: str | None = None
-
-    if _terrain_analyzer is None:
-        terrain_warning = "TerrainAnalyzer not initialised — flow paths unavailable."
-        logger.warning(f"   {terrain_warning}")
-    else:
-        try:
-            logger.info("   Starting terrain pipeline (GEE + WhiteboxTools) …")
-            t_terrain = time.perf_counter()
-
-            # run_full_pipeline is a blocking GIS call that can take 10-20 s.
-            # We run it directly inside the async handler; FastAPI/uvicorn uses
-            # a thread pool for the event loop so the server remains responsive.
-            geojson_path: str | None = _terrain_analyzer.run_full_pipeline(
-                req.latitude, req.longitude
-            )
-
-            elapsed_terrain = time.perf_counter() - t_terrain
-            logger.info(f"   Terrain pipeline finished in {elapsed_terrain:.1f}s")
-
-            if geojson_path and os.path.exists(geojson_path):
-                with open(geojson_path, "r") as fh:
-                    flow_paths = json.load(fh)
-                logger.info(
-                    f"   Loaded GeoJSON: {len(flow_paths.get('features', []))} features"
+            
+            risk_forecast = []
+            cumulative_rain = rainfall_mm
+            for daily_rain in rainfall_forecast:
+                cumulative_rain += daily_rain
+                forecast_score = risk_predict(
+                    req.latitude, req.longitude, 
+                    rainfall_mm=cumulative_rain, soil_type=soil_type,
+                    ndvi=satellite_context["ndvi"], soil_moisture=satellite_context["soil_moisture"],
+                    is_burn_zone=satellite_context["is_burn_zone"]
                 )
-            else:
-                terrain_warning = "Terrain pipeline ran but produced no GeoJSON output."
-                logger.warning(f"   {terrain_warning}")
-
+                risk_forecast.append(forecast_score)
         except Exception as exc:
-            terrain_warning = f"Terrain pipeline error: {exc}"
-            logger.error(f"   {terrain_warning}")
-            # flow_paths stays None — we still return the ML score below
+            logger.error(f"   Risk model prediction failed: {exc}")
+            yield f'data: {json.dumps({"error": "Risk model unavailable", "detail": str(exc)})}\n\n'
+            return
 
-    # ── Build response ────────────────────────────────────────────────────────
-    elapsed_total = time.perf_counter() - t0
-    logger.info(f"← /v1/analyze completed in {elapsed_total:.2f}s")
+        # ── Step 2: Terrain Pipeline (slow / optional) ───────────────────────────
+        flow_paths = None
+        terrain_warning: str | None = None
 
-    response = {
-        "risk_score": risk_score,
-        "risk_forecast": risk_forecast,
-        "flow_paths": flow_paths,
-        "environment": env_data,
-        "status": "success",
-        "input_params": {
-            "latitude": req.latitude,
-            "longitude": req.longitude,
-            "radius": req.radius,
-        },
-        "metadata": {
-            **_build_metadata(req, elapsed=elapsed_total),
-            **({"warning": terrain_warning} if terrain_warning else {}),
-        },
-    }
-    return response
+        if _terrain_analyzer is None:
+            terrain_warning = "TerrainAnalyzer not initialised — flow paths unavailable."
+            yield f'data: {json.dumps({"log": "Terrain engine disabled. Skipping flow paths..."})}\n\n'
+            await asyncio.sleep(0.05)
+        else:
+            yield f'data: {json.dumps({"log": "Running Hydrology Pipeline (GEE + WhiteboxTools) ... This may take 10-20 seconds."})}\n\n'
+            await asyncio.sleep(0.05)
+            try:
+                geojson_path: str | None = await asyncio.to_thread(
+                    _terrain_analyzer.run_full_pipeline, req.latitude, req.longitude
+                )
+                if geojson_path and os.path.exists(geojson_path):
+                    with open(geojson_path, "r") as fh:
+                        flow_paths = json.load(fh)
+                    num_features = len(flow_paths.get('features', []))
+                    yield f'data: {json.dumps({"log": f"Flow paths generated successfully ({num_features} features found)."})}\n\n'
+                    await asyncio.sleep(0.05)
+                else:
+                    terrain_warning = "Terrain pipeline ran but produced no GeoJSON output."
+            except Exception as exc:
+                terrain_warning = f"Terrain pipeline error: {exc}"
+                yield f'data: {json.dumps({"log": f"Terrain pipeline error: {exc}"})}\n\n'
+                await asyncio.sleep(0.05)
+
+        elapsed_total = time.perf_counter() - t0
+        response = {
+            "risk_score": risk_score,
+            "risk_forecast": risk_forecast,
+            "flow_paths": flow_paths,
+            "environment": env_data,
+            "status": "success",
+            "input_params": {
+                "latitude": req.latitude,
+                "longitude": req.longitude,
+                "radius": req.radius,
+            },
+            "metadata": {
+                **_build_metadata(req, elapsed=elapsed_total),
+                **({"warning": terrain_warning} if terrain_warning else {}),
+            },
+        }
+        
+        yield f'data: {json.dumps(response)}\n\n'
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 # ── User settings (Person 3's endpoint) ─────────────────────────────────────
 

@@ -1,20 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type { AnalysisParams } from '../types';
 
 interface SidebarProps {
   onAnalyze: (params: AnalysisParams) => void;
-  jsonOutput: string;
+  analysisLogs: string[];
   isAnalyzing: boolean;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ onAnalyze, jsonOutput, isAnalyzing }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ onAnalyze, analysisLogs, isAnalyzing }) => {
   const [lat, setLat] = useState(-13.1631);
   const [lon, setLon] = useState(-72.5450);
   const [radius, setRadius] = useState(5);
+  const logsEndRef = useRef<HTMLDivElement>(null);
 
   const handleAnalyze = () => {
     onAnalyze({ lat, lon, radius });
   };
+
+  useEffect(() => {
+    if (logsEndRef.current) {
+      logsEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [analysisLogs]);
 
   return (
     <div className="sidebar">
@@ -63,7 +70,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onAnalyze, jsonOutput, isAnaly
       </div>
 
       <button className="btn-analyze" onClick={handleAnalyze} disabled={isAnalyzing}>
-        {isAnalyzing ? '⏳ ANALYZING (GEE takes 10-20s)...' : '▶ RUN ANALYSIS'}
+        {isAnalyzing ? '⏳ STREAMING ANALYSIS...' : '▶ RUN ANALYSIS'}
       </button>
 
       <div className="section-header">Legend</div>
@@ -80,8 +87,33 @@ export const Sidebar: React.FC<SidebarProps> = ({ onAnalyze, jsonOutput, isAnaly
         <span>Low Risk Zone</span>
       </div>
 
-      <div className="section-header">API Response (Live)</div>
-      <div className="json-output">{jsonOutput}</div>
+      <div className="section-header">Live Terminal</div>
+      <div className="json-output" style={{
+        background: '#0a0a0f', color: '#00ffcc', fontFamily: 'monospace',
+        padding: '10px', height: '180px', overflowY: 'auto', display: 'flex',
+        flexDirection: 'column', gap: '4px', fontSize: '11px',
+        border: '1px solid #1a2b3c', borderRadius: '4px'
+      }}>
+        {analysisLogs.length === 0 ? (
+          <span style={{ color: '#556' }}>&gt; Ready to start engine...</span>
+        ) : (
+          analysisLogs.map((log, i) => (
+            <div key={i} style={{ display: 'flex' }}>
+              <span style={{ color: '#445', marginRight: '6px' }}>&gt;</span>
+              <span>{log}</span>
+            </div>
+          ))
+        )}
+        {isAnalyzing && (
+          <div style={{ animation: 'blink 1s step-end infinite' }}>█</div>
+        )}
+        <div ref={logsEndRef} />
+      </div>
+      <style>{`
+        @keyframes blink {
+          50% { opacity: 0; }
+        }
+      `}</style>
     </div>
   );
 };
