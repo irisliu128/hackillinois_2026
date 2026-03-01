@@ -9,9 +9,6 @@ export interface AnalysisParams {
   lat: number;
   lon: number;
   radius: number;
-  rainfall: number;
-  season: string;
-  soil: string;
 }
 
 export interface AnalysisResponse {

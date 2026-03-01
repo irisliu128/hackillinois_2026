@@ -83,8 +83,15 @@ def predict(
 
     # 6. 🏗️ Urban Infrastructure
     import requests
+    import requests_cache
+    from pathlib import Path
+    
     is_urban = False
     try:
+        # Resilient Caching: Only query OSM Overpass if we haven't checked this area recently
+        cache_dir = Path("./data/terrain_cache") / "osm_cache"
+        session = requests_cache.CachedSession(str(cache_dir), expire_after=86400) # 24 hour cache
+        
         # Check OpenStreetMap for urban infrastructure (buildings or major roads) within a 1km radius
         # Overpass API uses format: (south, west, north, east)
         bbox = f"{lat - 0.01},{lon - 0.01},{lat + 0.01},{lon + 0.01}" 
@@ -96,13 +103,13 @@ def predict(
         );
         out count;
         """
-        response = requests.post("https://overpass-api.de/api/interpreter", data={"data": query}, timeout=6)
+        response = session.post("https://overpass-api.de/api/interpreter", data={"data": query}, timeout=6)
         if response.status_code == 200:
             data = response.json()
             if int(data.get("elements", [{}])[0].get("tags", {}).get("ways", 0)) > 50:
                  is_urban = True
     except Exception:
-        pass # If OSM fails, safely default back to rural
+        pass # If OSM fails or rate-limits, safely default back to rural
         
     if is_urban:
         multiplier *= 0.4 # 60% safety bonus for engineered cities
