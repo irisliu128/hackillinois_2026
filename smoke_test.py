@@ -29,26 +29,39 @@ def run_system_test():
         print(f"\n--- 🌍 TEST: {case['name']} ---")
         t0 = time.time()
         try:
-            resp = requests.post(f"{base_url}/v1/analyze", json=case, timeout=45)
+            resp = requests.post(f"{base_url}/v1/analyze", json=case, timeout=45, stream=True)
             elapsed = time.time() - t0
             
             if resp.status_code == 200:
-                data = resp.json()
-                score = data.get("risk_score")
-                env = data.get("environment", {})
-                flow_count = len(data.get("flow_paths", {}).get("features", [])) if data.get("flow_paths") else 0
-                
-                print(f"✅ Success ({elapsed:.1f}s)")
-                print(f"   Risk Score: {score:.4f}")
-                print(f"   Soil: {env.get('auto_soil_type')}")
-                print(f"   Rain: {env.get('auto_rainfall_mm')}mm")
-                print(f"   Flow Channels: {flow_count} points found")
-                
-                # Logic Validations
-                if case['name'] == "Seattle (Urban/Dry)" and score > 0.6:
-                    print("   ⚠️ WARNING: Seattle risk seems high. Checking calibration...")
-                elif case['name'] == "Medellin (Mountain/Landslide Prone)" and score < 0.4:
-                    print("   ⚠️ WARNING: Mountainous Medellin risk seems suspiciously low.")
+                print(f"✅ Connection Established ({elapsed:.1f}s). Streaming data...")
+                # Parse SSE chunks
+                for line in resp.iter_lines():
+                    if line:
+                        decoded_line = line.decode('utf-8')
+                        if decoded_line.startswith('data: '):
+                            json_str = decoded_line[6:]
+                            try:
+                                data = json.loads(json_str)
+                                if "log" in data:
+                                    print(f"   > {data['log']}")
+                                elif "status" in data and data["status"] == "success":
+                                    score = data.get("risk_score")
+                                    env = data.get("environment", {})
+                                    flow_count = len(data.get("flow_paths", {}).get("features", [])) if data.get("flow_paths") else 0
+                                    
+                                    print(f"\n✅ Analysis Finished")
+                                    print(f"   Risk Score: {score:.4f}")
+                                    print(f"   Soil: {env.get('auto_soil_type')}")
+                                    print(f"   Rain: {env.get('auto_rainfall_mm')}mm")
+                                    print(f"   Flow Channels: {flow_count} points found")
+                                    
+                                    # Logic Validations
+                                    if case['name'] == "Seattle (Urban/Dry)" and score > 0.6:
+                                        print("   ⚠️ WARNING: Seattle risk seems high. Checking calibration...")
+                                    elif case['name'] == "Medellin (Mountain/Landslide Prone)" and score < 0.4:
+                                        print("   ⚠️ WARNING: Mountainous Medellin risk seems suspiciously low.")
+                            except json.JSONDecodeError:
+                                pass
             else:
                 print(f"❌ Error {resp.status_code}: {resp.text}")
         except Exception as e:
