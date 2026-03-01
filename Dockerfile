@@ -1,14 +1,15 @@
-FROM python:3.11-slim
+FROM python:3.13-slim
 
-# System deps rasterio needs
 RUN apt-get update && apt-get install -y \
-    libexpat1 \
+    libexpat1-dev \
     libgdal-dev \
     gdal-bin \
     libgeos-dev \
     libproj-dev \
-    libxml2 \
-    libxslt1.1 \
+    libxml2-dev \
+    libxslt1-dev \
+    gcc \
+    g++ \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
