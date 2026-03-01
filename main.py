@@ -24,7 +24,7 @@ from pydantic import BaseModel, Field
 
 # ── Project-internal imports ────────────────────────────────────────────────
 from src.risk_model import predict as risk_predict, load as load_risk_model
-from src.weather_service import fetch_rainfall_data
+from src.weather_service import fetch_rainfall_data, fetch_rainfall_forecast
 from src.soil_service import fetch_soil_type
 from src.adaptive_scaler import AdaptiveScaler, run_adaptive_polling_loop
 from terrain_engine import TerrainAnalyzer
@@ -146,9 +146,18 @@ async def analyze(req: AnalyzeRequest):
             },
         )
             
-    rainfall_mm: float = fetch_rainfall_data(req.latitude, req.longitude)
-    soil_type: str = fetch_soil_type(req.latitude, req.longitude)
-    
+    # Fetch networking requests concurrently for maximum performance
+    try:
+        rainfall_mm, forecast_7d, soil_type = await asyncio.gather(
+            asyncio.to_thread(fetch_rainfall_data, req.latitude, req.longitude),
+            asyncio.to_thread(fetch_rainfall_forecast, req.latitude, req.longitude),
+            asyncio.to_thread(fetch_soil_type, req.latitude, req.longitude)
+        )
+    except Exception as e:
+        logger.error(f"   Concurrent fetch failed: {e}")
+        rainfall_mm = fetch_rainfall_data(req.latitude, req.longitude)
+        forecast_7d = fetch_rainfall_forecast(req.latitude, req.longitude)
+        soil_type = fetch_soil_type(req.latitude, req.longitude)    
     # NEW: Fetch satellite indices from Terrain Engine (GEE)
     global _terrain_analyzer
     if _terrain_analyzer is None:
@@ -188,6 +197,24 @@ async def analyze(req: AnalyzeRequest):
             is_burn_zone=satellite_context["is_burn_zone"]
         )
         logger.info(f"   ML risk score (Live Calibrated v3.0): {risk_score:.4f}")
+        
+        risk_forecast = []
+        cumulative_rain = rainfall_mm
+        for daily_rain in forecast_7d:
+            cumulative_rain += daily_rain
+            score = risk_predict(
+                req.latitude, 
+                req.longitude, 
+                rainfall_mm=cumulative_rain, 
+                soil_type=soil_type,
+                ndvi=satellite_context["ndvi"],
+                soil_moisture=satellite_context["soil_moisture"],
+                is_burn_zone=satellite_context["is_burn_zone"]
+            )
+            risk_forecast.append(score)
+            
+        logger.info(f"   ML forecast score (7-day): {risk_forecast}")
+        
     except Exception as exc:
         logger.error(f"   Risk model prediction failed: {exc}")
         # Return a structured error so the frontend can degrade gracefully
@@ -245,6 +272,7 @@ async def analyze(req: AnalyzeRequest):
 
     response = {
         "risk_score": risk_score,
+        "risk_forecast": risk_forecast,
         "flow_paths": flow_paths,
         "environment": env_data,
         "status": "success",

@@ -9,17 +9,30 @@ export const MapInfo: React.FC<MapInfoProps> = ({ currentAnalysis }) => {
   const score = currentAnalysis?.risk_score;
   const displayScore = score !== undefined && score !== null ? score.toFixed(4) : "0.71";
 
+  // Index 0 = 24h, Index 1 = 48h
+  const fscoreList = currentAnalysis?.risk_forecast;
+  const fscore = fscoreList && fscoreList.length > 1 ? fscoreList[1] : null;
+  const displayFScore = fscore !== null ? fscore.toFixed(4) : "0.72";
+
   // Decide color based on score
   let scoreClass = "high";
   if (score && score < 0.3) scoreClass = "green";
   else if (score && score < 0.7) scoreClass = "medium";
 
+  let fscoreClass = "high";
+  if (fscore && fscore < 0.3) fscoreClass = "green";
+  else if (fscore && fscore < 0.7) fscoreClass = "medium";
+
   return (
     <div className="map-info">
       <h3>Risk Analysis Summary</h3>
       <div className="metric">
-        <div className="metric-label">Overall Risk Score</div>
+        <div className="metric-label">Live Risk Score</div>
         <div className={`metric-value ${scoreClass}`}>{displayScore}</div>
+      </div>
+      <div className="metric">
+        <div className="metric-label">48-Hour Forecast Score</div>
+        <div className={`metric-value ${fscoreClass}`}>{displayFScore}</div>
       </div>
 
       <div style={{ marginTop: '20px' }}>

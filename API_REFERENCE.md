@@ -41,6 +41,7 @@ The core engine of TerraSight. It calculates landslide susceptibility by merging
 ```json
 {
   "risk_score": 0.84,
+  "risk_forecast": [0.84, 0.86, 0.86, 0.88, 0.89, 0.89, 0.89],
   "flow_paths": null,
   "environment": {
     "auto_rainfall_mm": 45.5,
