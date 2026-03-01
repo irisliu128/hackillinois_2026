@@ -92,9 +92,11 @@ def predict(
         cache_dir = Path("./data/terrain_cache") / "osm_cache"
         session = requests_cache.CachedSession(str(cache_dir), expire_after=86400) # 24 hour cache
         
+        grid_lat = round(lat, 2)
+        grid_lon = round(lon, 2)
         # Check OpenStreetMap for urban infrastructure (buildings or major roads) within a 1km radius
         # Overpass API uses format: (south, west, north, east)
-        bbox = f"{lat - 0.01},{lon - 0.01},{lat + 0.01},{lon + 0.01}" 
+        bbox = f"{grid_lat - 0.01},{grid_lon - 0.01},{grid_lat + 0.01},{grid_lon + 0.01}" 
         query = f"""
         [out:json][timeout:5];
         (
@@ -103,7 +105,12 @@ def predict(
         );
         out count;
         """
-        response = session.post("https://overpass-api.de/api/interpreter", data={"data": query}, timeout=6)
+        response = session.post(
+            "https://overpass-api.de/api/interpreter", 
+            data={"data": query}, 
+            headers={"User-Agent": "TerraSight-Hydrology/1.0 (hackillinois2026; contact@example.com)"},
+            timeout=10
+        )
         if response.status_code == 200:
             data = response.json()
             if int(data.get("elements", [{}])[0].get("tags", {}).get("ways", 0)) > 50:
