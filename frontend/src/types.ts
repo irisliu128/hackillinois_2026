@@ -13,6 +13,7 @@ export interface AnalysisParams {
 
 export interface AnalysisResponse {
   risk_score: number | null;
+  risk_forecast?: number[] | null;
   flow_paths: any | null; // GeoJSON FeatureCollection
   status: string;
   input_params: {
