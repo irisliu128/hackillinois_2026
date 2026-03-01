@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { MapComponent } from './components/MapComponent';
 import { MapInfo } from './components/MapInfo';
@@ -53,6 +53,11 @@ function App() {
       setIsAnalyzing(false);
     }
   };
+
+  // Load default analysis on mount
+  useEffect(() => {
+    handleAnalyze({ lat: 21.710, lon: 104.878, radius: 5 });
+  }, []);
 
   return (
     <div className="app-container">
