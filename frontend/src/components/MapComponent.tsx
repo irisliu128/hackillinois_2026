@@ -54,12 +54,13 @@ export const MapComponent: React.FC<MapComponentProps> = ({ currentAnalysis }) =
   };
 
   // Default center or analysis center
+  // Vietnam province view
   const center: [number, number] = currentAnalysis
     ? [currentAnalysis.input_params.latitude, currentAnalysis.input_params.longitude]
     : [21.710, 104.878];
 
-  // Which GeoJSON to show
-  const geojsonData = currentAnalysis?.flow_paths || RISK_ZONES;
+  // Which GeoJSON to show - only show when there's an actual analysis
+  const geojsonData = currentAnalysis?.flow_paths || null;
 
   return (
     <div className="map-container">

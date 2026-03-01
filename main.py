@@ -45,11 +45,12 @@ logging.basicConfig(
     format="[%(asctime)s] %(levelname)s  %(name)s — %(message)s",
     datefmt="%Y-%m-%dT%H:%M:%S",
 )
-logger = logging.getLogger("FloodGuard.API")
+logger = logging.getLogger("TerraSight.API")
+
 
 # ── FastAPI app ───────────────────────────────────────────────────────────────
 app = FastAPI(
-    title="FloodGuard API",
+    title="TerraSight API",
     description="Landslide & flood risk analysis powered by ML + GEE terrain hydrology.",
     version="1.0.0",
 )
@@ -115,7 +116,7 @@ def health():
 @app.post("/v1/analyze", tags=["Analysis"])
 async def analyze(req: AnalyzeRequest):
     """
-    Run the full FloodGuard pipeline:
+    Run the full TerraSight pipeline:
       1. ML risk score (fast, always available)
       2. Terrain hydrology / flow paths via GEE + WhiteboxTools (may be slow or unavailable)
     
