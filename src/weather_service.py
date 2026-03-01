@@ -43,3 +43,36 @@ def fetch_rainfall_data(lat: float, lon: float) -> float:
         logger.error(f"Weather Fetch Failed: {e}")
         
     return 0.0
+
+def fetch_rainfall_forecast(lat: float, lon: float) -> list[float]:
+    """
+    Fetches the 7-day rainfall forecast using Open-Meteo API.
+    Returns a list of 7 daily accumulated rainfall values (mm).
+    """
+    from datetime import datetime, timedelta
+    
+    start_date = datetime.utcnow().strftime('%Y-%m-%d')
+    end_date = (datetime.utcnow() + timedelta(days=6)).strftime('%Y-%m-%d')
+    
+    url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&start_date={start_date}&end_date={end_date}&daily=precipitation_sum&timezone=auto"
+    
+    try:
+        resp = requests.get(url, timeout=10)
+        if resp.status_code == 200:
+            data = resp.json()
+            daily_rain = data.get("daily", {}).get("precipitation_sum", [])
+            valid_rain = [float(r) if r is not None else 0.0 for r in daily_rain]
+            
+            # Ensure we have exactly 7 days
+            while len(valid_rain) < 7:
+                valid_rain.append(0.0)
+            valid_rain = valid_rain[:7]
+            
+            logger.info(f"Fetched weather forecast: {valid_rain}mm 7-day rain predicted at ({lat}, {lon}).")
+            return valid_rain
+        else:
+            logger.error(f"Weather Forecast API Error: {resp.status_code} - {resp.text}")
+    except Exception as e:
+        logger.error(f"Weather Forecast Fetch Failed: {e}")
+        
+    return [0.0] * 7

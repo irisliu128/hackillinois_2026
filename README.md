@@ -17,10 +17,10 @@ TerraSight is an autonomous, global-scale landslide risk and hydrological analys
 
 ---
 
-## 🧠 Brain Logic (v4.1 Multi-Factor Fusion)
+## 🧠 Brain Logic (v4.2 Multi-Factor Predictive Fusion)
 The Risk Score (`0.0 - 1.0`) is a weighted fusion of:
 1. **Historical Baseline (ML)**: Geological history tracked via `nasa_glc.csv`.
-2. **Saturation Memory**: 7-day rainfall accumulation (Open-Meteo API).
+2. **Forecasted Precipitation**: Open-Meteo API for 7-day rolling precipitation forecast.
 3. **Vegetation Bonus**: Forests (High NDVI) reduce risk by ~30%.
 4. **Saturation Penalty**: Saturated ground (NASA SMAP > 35%) increases risk by 1.5x.
 5. **Urban Safety Bonus**: Dynamic OSM checks for "Infrastructure Stability" bonuses (roads/buildings).
@@ -72,6 +72,15 @@ The Risk Score (`0.0 - 1.0`) is a weighted fusion of:
 ```json
 {
   "risk_score": 0.4215,
+  "risk_forecast": [
+    0.4215,
+    0.4503,
+    0.4901,
+    0.6850,
+    0.8012,
+    0.8012,
+    0.7915
+  ],
   "environment": {
     "auto_rainfall_mm": 0.0,
     "auto_soil_type": "loam",
