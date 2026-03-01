@@ -27,6 +27,7 @@ from src.risk_model import predict as risk_predict, load as load_risk_model
 from src.weather_service import fetch_rainfall_data, fetch_rainfall_forecast
 from src.soil_service import fetch_soil_type
 from src.adaptive_scaler import AdaptiveScaler, run_adaptive_polling_loop
+from src.intervention_scanner import InterventionScanner
 from terrain_engine import TerrainAnalyzer
 import uuid
 from supabase import create_client
@@ -109,11 +110,19 @@ async def _startup():
 #    Mount after routes so /v1/* is matched first.
 _STATIC_DIR = Path(__file__).parent  # directory that contains index.html
 
-# ── Pydantic schema ───────────────────────────────────────────────────────────
+# ── Pydantic schemas ──────────────────────────────────────────────────────────
 class AnalyzeRequest(BaseModel):
     latitude: float = Field(..., ge=-90,  le=90,   description="Decimal latitude")
     longitude: float = Field(..., ge=-180, le=180,  description="Decimal longitude")
     radius: float    = Field(..., gt=0,             description="Analysis radius in km")
+
+
+class SimulateRequest(BaseModel):
+    latitude: float  = Field(..., ge=-90,  le=90,   description="Analysis latitude")
+    longitude: float = Field(..., ge=-180, le=180,  description="Analysis longitude")
+    proposed_channel: dict = Field(..., description="GeoJSON LineString drawn by the user")
+    intervention_strength: float = Field(0.5, ge=0.1, le=1.0,
+        description="Multiplier applied to base risk downstream (0.5 = 50% reduction)")
 
 
 # ── Health endpoint ───────────────────────────────────────────────────────────
@@ -225,11 +234,27 @@ async def analyze(req: AnalyzeRequest):
                 yield f'data: {json.dumps({"log": f"Terrain pipeline error: {exc}"})}\n\n'
                 await asyncio.sleep(0.05)
 
+        # ── Step 3: Intervention Scanner ─────────────────────────────────────
+        recommendations: list[dict] = []
+        try:
+            yield f'data: {json.dumps({"log": "Running Intervention Scanner (River Nodes + Slope Intersection)..."})}\n\n'
+            await asyncio.sleep(0.05)
+            scanner = InterventionScanner(work_dir="./data/terrain_cache")
+            recommendations = await asyncio.to_thread(scanner.run)
+            critical_count = sum(1 for r in recommendations if r.get("critical_diversion_point"))
+            yield f'data: {json.dumps({"log": f"Intervention scan complete: {len(recommendations)} recommendation(s) ({critical_count} critical diversion point(s))."})}\n\n'
+            await asyncio.sleep(0.05)
+        except Exception as exc:
+            logger.warning(f"Intervention scanner failed (non-fatal): {exc}")
+            yield f'data: {json.dumps({"log": f"Intervention scanner skipped: {exc}"})}\n\n'
+            await asyncio.sleep(0.05)
+
         elapsed_total = time.perf_counter() - t0
         response = {
             "risk_score": risk_score,
             "risk_forecast": risk_forecast,
             "flow_paths": flow_paths,
+            "recommendations": recommendations,
             "environment": env_data,
             "status": "success",
             "input_params": {
@@ -246,6 +271,130 @@ async def analyze(req: AnalyzeRequest):
         yield f'data: {json.dumps(response)}\n\n'
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+# ── What-If Simulation Endpoint ───────────────────────────────────────────────
+@app.post("/v1/simulate", tags=["Simulation"])
+async def simulate(req: SimulateRequest):
+    """
+    What-If Simulation: calculate the risk score reduction from a proposed
+    diversion channel (LineString GeoJSON drawn by the user).
+
+    The "Weight Hack": we do NOT re-run the full terrain pipeline.
+    Instead, we apply `intervention_strength` as a multiplier to the base
+    risk probability — demonstrating the downstream impact in real-time.
+    """
+    t0 = time.perf_counter()
+
+    # Gather environment data quickly (cached by OSM/weather services)
+    try:
+        rainfall_mm: float = await asyncio.to_thread(fetch_rainfall_data, req.latitude, req.longitude)
+        soil_type: str     = await asyncio.to_thread(fetch_soil_type, req.latitude, req.longitude)
+    except Exception:
+        rainfall_mm, soil_type = 0.0, "loam"
+
+    # Compute baseline (pre-intervention) score
+    pre_score = risk_predict(
+        req.latitude, req.longitude,
+        rainfall_mm=rainfall_mm,
+        soil_type=soil_type,
+    )
+
+    # Extract downstream midpoint from the LineString
+    coords = req.proposed_channel.get("coordinates", [])
+    if len(coords) >= 2:
+        mid_idx = len(coords) // 2
+        ds_lon, ds_lat = float(coords[mid_idx][0]), float(coords[mid_idx][1])
+    else:
+        ds_lat, ds_lon = req.latitude, req.longitude
+
+    # Compute post-intervention score using the weight hack
+    post_score = risk_predict(
+        ds_lat, ds_lon,
+        rainfall_mm=rainfall_mm,
+        soil_type=soil_type,
+        intervention_multiplier=req.intervention_strength,
+    )
+
+    delta = round(pre_score - post_score, 4)
+    pct_reduction = round((delta / max(pre_score, 0.001)) * 100, 1)
+    elapsed = time.perf_counter() - t0
+
+    # Run intervention scanner for extra context (non-blocking)
+    recommendations: list[dict] = []
+    try:
+        scanner = InterventionScanner(work_dir="./data/terrain_cache")
+        recommendations = await asyncio.to_thread(scanner.run)
+    except Exception:
+        pass
+
+    return {
+        "status": "success",
+        "pre_intervention_score":  round(pre_score, 4),
+        "post_intervention_score": round(post_score, 4),
+        "risk_delta": delta,
+        "pct_reduction": pct_reduction,
+        "channel_coords": coords,
+        "intervention_strength": req.intervention_strength,
+        "recommendations": recommendations,
+        "metadata": {
+            "lat": req.latitude,
+            "lon": req.longitude,
+            "rainfall_mm": rainfall_mm,
+            "soil_type": soil_type,
+            "processing_time_s": round(elapsed, 3),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        },
+    }
+
+
+# ── Insurance Oracle Status ───────────────────────────────────────────────────
+INSURANCE_RISK_THRESHOLD  = 0.75
+INSURANCE_RAIN_THRESHOLD  = 30.0
+
+@app.get("/v1/insurance/status", tags=["Insurance Oracle"])
+async def insurance_status():
+    """
+    Returns the current parametric insurance oracle state.
+    Reads the latest monitoring_sessions entries and evaluates dual-trigger.
+    """
+    try:
+        result = (
+            supabase.table("monitoring_sessions")
+            .select("lat,lon,final_prob,rainfall_mm,risk_level,last_check")
+            .order("last_check", desc=True)
+            .limit(10)
+            .execute()
+        )
+        sessions = result.data or []
+    except Exception as exc:
+        logger.warning(f"/v1/insurance/status DB query failed: {exc}")
+        sessions = []
+
+    triggered_sessions = []
+    for s in sessions:
+        prob      = s.get("final_prob", 0.0) or 0.0
+        rain      = s.get("rainfall_mm", 0.0) or 0.0
+        triggered = prob > INSURANCE_RISK_THRESHOLD and rain > INSURANCE_RAIN_THRESHOLD
+        triggered_sessions.append({
+            **s,
+            "insurance_triggered": triggered,
+            "trigger_prob_threshold":  INSURANCE_RISK_THRESHOLD,
+            "trigger_rain_threshold":  INSURANCE_RAIN_THRESHOLD,
+        })
+
+    any_triggered = any(s["insurance_triggered"] for s in triggered_sessions)
+    return {
+        "oracle_status": "TRIGGERED" if any_triggered else "WATCHING",
+        "sessions": triggered_sessions,
+        "payout_narrative": (
+            "DUAL THRESHOLD MET: Pre-disaster funding of $500,000 may now be released "
+            "to registered NGO beneficiaries per parametric contract."
+            if any_triggered else
+            "No active triggers. Oracle monitoring all registered coordinates."
+        ),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
 
 # ── User settings (Person 3's endpoint) ─────────────────────────────────────
 

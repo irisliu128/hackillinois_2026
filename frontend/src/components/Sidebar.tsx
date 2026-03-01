@@ -5,9 +5,10 @@ interface SidebarProps {
   onAnalyze: (params: AnalysisParams) => void;
   analysisLogs: string[];
   isAnalyzing: boolean;
+  children?: React.ReactNode;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ onAnalyze, analysisLogs, isAnalyzing }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ onAnalyze, analysisLogs, isAnalyzing, children }) => {
   const [latStr, setLatStr] = useState("21.710");
   const [lonStr, setLonStr] = useState("104.878");
   const [radius, setRadius] = useState(5);
@@ -114,6 +115,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onAnalyze, analysisLogs, isAna
           50% { opacity: 0; }
         }
       `}</style>
+      {children}
     </div>
   );
 };

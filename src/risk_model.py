@@ -42,11 +42,16 @@ def predict(
     ndvi: float = 0.5,
     soil_moisture: float = 0.2,
     is_burn_zone: bool = False,
-    model_path: str | Path | None = None
+    model_path: str | Path | None = None,
+    intervention_multiplier: float = 1.0,
 ) -> float:
     """
     Return landslide risk probability (0.0–1.0) for the given coordinate.
     Version 3.0: Multi-Factor Fusion (ML + Climate + GEE Satellite Indices).
+
+    intervention_multiplier: applied AFTER all calibration steps.
+      Pass 0.5 to simulate a diversion channel halving downstream risk.
+      Default 1.0 = no intervention (normal prediction).
     """
     art = load(model_path)
     model = art["model"]
@@ -115,5 +120,5 @@ def predict(
         multiplier *= 0.4 # 60% safety bonus for engineered cities
 
     # logger.info(f"CALC: base={base_prob:.2f} multi={multiplier:.2f} ndvi={ndvi:.2f} soil={soil_type}")
-    final_prob = float(np.clip(base_prob * multiplier, 0.0, 1.0))
+    final_prob = float(np.clip(base_prob * multiplier * intervention_multiplier, 0.0, 1.0))
     return final_prob

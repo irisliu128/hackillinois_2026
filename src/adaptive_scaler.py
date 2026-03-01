@@ -33,6 +33,7 @@ import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+import httpx
 from supabase import Client
 
 # ── project-internal imports ──────────────────────────────────────────────────
@@ -48,6 +49,10 @@ CRITICAL_RAIN_THRESHOLD: float = 20.0       # mm above which         → CRITICA
 ALERT_INTERVAL:  timedelta = timedelta(hours=.12)
 NORMAL_INTERVAL: timedelta = timedelta(hours=24)
 COOLDOWN_CYCLES: int = 3   # consecutive normal readings before downgrade
+
+# ── Parametric Insurance Oracle thresholds ────────────────────────────────
+INSURANCE_RISK_THRESHOLD: float = 0.75   # final_prob dual-trigger (higher than CRITICAL)
+INSURANCE_RAIN_THRESHOLD: float = 30.0   # rainfall_mm dual-trigger
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -145,9 +150,59 @@ class AdaptiveScaler:
         # 7. Persist / update monitoring_sessions (never create duplicate rows)
         await self._upsert_session(lat, lon, interval, risk_level, next_check_at, final_prob, rainfall_mm)
 
+        # 8. 🚨 Parametric Insurance Oracle — dual-threshold trigger
+        if final_prob > INSURANCE_RISK_THRESHOLD and rainfall_mm > INSURANCE_RAIN_THRESHOLD:
+            await self._fire_insurance_webhook(lat, lon, final_prob, rainfall_mm)
+
         return interval
 
     # ── Cool-down helper ──────────────────────────────────────────────────────
+
+    async def _fire_insurance_webhook(self, lat: float, lon: float, final_prob: float, rainfall_mm: float) -> None:
+        """
+        Emits a disaster_event_authenticated webhook when the dual threshold is met.
+        Target URL is read from WEBHOOK_URL env var (optional — safe to leave unset).
+        """
+        payload = {
+            "event": "disaster_event_authenticated",
+            "trigger": "DUAL_THRESHOLD",
+            "conditions_met": {
+                "final_prob": round(final_prob, 4),
+                "final_prob_threshold": INSURANCE_RISK_THRESHOLD,
+                "rainfall_mm": round(rainfall_mm, 2),
+                "rainfall_threshold_mm": INSURANCE_RAIN_THRESHOLD,
+            },
+            "coords": {"lat": lat, "lon": lon},
+            "payout_recommendation": "$500,000 pre-disaster release to registered NGO beneficiaries",
+            "narrative": (
+                "FloodGuard Oracle has authenticated a high-confidence disaster event. "
+                "Parametric insurance contract conditions are satisfied. "
+                "Automated financial disbursement is recommended."
+            ),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
+        logger.warning(
+            f"[INSURANCE ORACLE] 🚨 TRIGGERED — "
+            f"prob={final_prob:.3f} (>{INSURANCE_RISK_THRESHOLD}), "
+            f"rain={rainfall_mm:.1f}mm (>{INSURANCE_RAIN_THRESHOLD}mm) "
+            f"at ({lat:.4f}, {lon:.4f})"
+        )
+
+        webhook_url = os.getenv("WEBHOOK_URL")
+        if not webhook_url:
+            logger.info("[INSURANCE ORACLE] No WEBHOOK_URL set — payload logged only.")
+            return
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.post(webhook_url, json=payload)
+                logger.info(
+                    f"[INSURANCE ORACLE] Webhook delivered → {webhook_url} "
+                    f"(HTTP {resp.status_code})"
+                )
+        except Exception as exc:
+            logger.error(f"[INSURANCE ORACLE] Webhook delivery failed: {exc}")
 
     async def apply_cooldown(self, lat: float, lon: float) -> bool:
         """
