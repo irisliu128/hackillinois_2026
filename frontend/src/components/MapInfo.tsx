@@ -10,7 +10,7 @@ export const MapInfo: React.FC<MapInfoProps> = ({ currentAnalysis }) => {
   const liveScore = currentAnalysis?.risk_score;
   const futureScore = riskForecast && riskForecast.length > 2 ? riskForecast[2] : null;
 
-  const displayLiveScore = liveScore !== undefined && liveScore !== null ? liveScore.toFixed(4) : "0.7100";
+  const displayLiveScore = liveScore !== undefined && liveScore !== null ? liveScore.toFixed(4) : "--";
   const displayFutureScore = futureScore !== undefined && futureScore !== null ? futureScore.toFixed(4) : "--";
 
   // Decide color based on live score
