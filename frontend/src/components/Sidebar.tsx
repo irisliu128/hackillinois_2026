@@ -8,13 +8,13 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ onAnalyze, analysisLogs, isAnalyzing }) => {
-  const [lat, setLat] = useState(-13.1631);
-  const [lon, setLon] = useState(-72.5450);
+  const [latStr, setLatStr] = useState("21.710");
+  const [lonStr, setLonStr] = useState("104.878");
   const [radius, setRadius] = useState(5);
   const logsEndRef = useRef<HTMLDivElement>(null);
 
   const handleAnalyze = () => {
-    onAnalyze({ lat, lon, radius });
+    onAnalyze({ lat: parseFloat(latStr), lon: parseFloat(lonStr), radius });
   };
 
   useEffect(() => {
@@ -34,8 +34,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ onAnalyze, analysisLogs, isAna
         <label className="input-label">Latitude</label>
         <input
           type="number"
-          value={lat}
-          onChange={(e) => setLat(parseFloat(e.target.value))}
+          value={latStr}
+          onChange={(e) => setLatStr(e.target.value)}
           step="0.001"
         />
       </div>
@@ -43,8 +43,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ onAnalyze, analysisLogs, isAna
         <label className="input-label">Longitude</label>
         <input
           type="number"
-          value={lon}
-          onChange={(e) => setLon(parseFloat(e.target.value))}
+          value={lonStr}
+          onChange={(e) => setLonStr(e.target.value)}
           step="0.001"
         />
       </div>
