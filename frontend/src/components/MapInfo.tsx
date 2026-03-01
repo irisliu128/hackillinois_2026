@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import type { AnalysisResponse } from '../types';
 
 interface MapInfoProps {
@@ -6,50 +6,44 @@ interface MapInfoProps {
 }
 
 export const MapInfo: React.FC<MapInfoProps> = ({ currentAnalysis }) => {
-  const [forecastDay, setForecastDay] = useState<number>(0);
-
   const riskForecast = currentAnalysis?.risk_forecast;
-  let score = currentAnalysis?.risk_score;
+  const liveScore = currentAnalysis?.risk_score;
+  const futureScore = riskForecast && riskForecast.length > 2 ? riskForecast[2] : null;
 
-  if (riskForecast && forecastDay > 0 && forecastDay < riskForecast.length) {
-    score = riskForecast[forecastDay];
-  }
+  const displayLiveScore = liveScore !== undefined && liveScore !== null ? liveScore.toFixed(4) : "0.7100";
+  const displayFutureScore = futureScore !== undefined && futureScore !== null ? futureScore.toFixed(4) : "--";
 
-  const displayScore = score !== undefined && score !== null ? score.toFixed(4) : "0.71";
+  // Decide color based on live score
+  let liveScoreClass = "high";
+  if (liveScore && liveScore < 0.3) liveScoreClass = "green";
+  else if (liveScore && liveScore < 0.7) liveScoreClass = "medium";
 
-  // Decide color based on score
-  let scoreClass = "high";
-  if (score && score < 0.3) scoreClass = "green";
-  else if (score && score < 0.7) scoreClass = "medium";
+  // Decide color based on future score
+  let futureScoreClass = "high";
+  if (futureScore && futureScore < 0.3) futureScoreClass = "green";
+  else if (futureScore && futureScore < 0.7) futureScoreClass = "medium";
+  else if (!futureScore) futureScoreClass = ""; // default when null
 
   return (
     <div className="map-info">
       <h3>Risk Analysis Summary</h3>
 
-      {riskForecast && riskForecast.length > 0 && (
-        <div className="forecast-slider" style={{ marginBottom: "20px", paddingBottom: "15px", borderBottom: "1px solid var(--border)" }}>
-          <label style={{ display: "block", fontSize: "0.85em", color: "var(--text-muted)", marginBottom: "8px", fontWeight: 600 }}>
-            Timeline: {forecastDay === 0 ? "Live (Today)" : `+${forecastDay} Day${forecastDay > 1 ? 's' : ''} Forecast`}
-          </label>
-          <input
-            type="range"
-            min="0"
-            max={riskForecast.length - 1}
-            value={forecastDay}
-            onChange={(e) => setForecastDay(parseInt(e.target.value))}
-            style={{ width: "100%", cursor: "pointer", accentColor: "var(--accent-teal)" }}
-          />
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.7em", color: "var(--text-muted)", marginTop: "4px" }}>
-            <span>Today</span>
-            <span>+6 Days</span>
-          </div>
+      <div className="metric" style={{ borderBottom: "1px solid var(--border)", paddingBottom: "10px", marginBottom: "10px" }}>
+        <div>
+          <div className="metric-label" style={{ fontWeight: 600, color: "var(--text-primary)" }}>Live Risk Score</div>
+          <div className="metric-label" style={{ fontSize: "0.75em", opacity: 0.8 }}>Current conditions</div>
         </div>
-      )}
-
-      <div className="metric">
-        <div className="metric-label">Overall Risk Score</div>
-        <div className={`metric-value ${scoreClass}`}>{displayScore}</div>
+        <div className={`metric-value ${liveScoreClass}`} style={{ fontSize: "1.4em", fontWeight: "bold" }}>{displayLiveScore}</div>
       </div>
+
+      <div className="metric" style={{ borderBottom: "1px solid var(--border)", paddingBottom: "15px", marginBottom: "15px" }}>
+        <div>
+          <div className="metric-label" style={{ fontWeight: 600, color: "var(--text-primary)" }}>48-Hour Forecast ⚠️</div>
+          <div className="metric-label" style={{ fontSize: "0.75em", opacity: 0.8 }}>Based on incoming weather</div>
+        </div>
+        <div className={`metric-value ${futureScoreClass}`} style={{ fontSize: "1.4em", fontWeight: "bold" }}>{displayFutureScore}</div>
+      </div>
+
       <div className="metric">
         <div className="metric-label">High Risk Area</div>
         <div className="metric-value high">{currentAnalysis ? "--" : "20.5"} ha</div>
