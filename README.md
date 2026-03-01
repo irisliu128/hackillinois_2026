@@ -1,22 +1,34 @@
-# 🌍 TerraSight: Global Landslide Intelligence Platform (v4.0)
+# 🌍 TerraSight: Global Landslide Intelligence Platform (v4.1)
 
 TerraSight is an autonomous, global-scale landslide risk and hydrological analysis tool designed for government agencies and NGOs. It combines **Machine Learning**, **Multi-Satellite Data (NASA/ESA)**, and **Physics-based Simulations** to predict regional hazards with zero manual input.
 
 ---
 
-## 🛠️ Developer Status (Feb 2026)
-**[COMPLETED] Person 1: Global Ecosystem & Climate Fusion**
-- **Autonomous Weather**: Live 24h rainfall via OpenWeatherMap.
-- **Micro-Soil Detection**: Global texture class via ISRIC SoilGrids.
-- **Satellite Surveillance (NEW)**:
+## 🛠️ Developer Status (Feb 2026 - v4.1 Improvements)
+**[COMPLETED] Risk Pipeline Optimization**
+- **Ocean Interception (NEW)**: Integrates `global-land-mask` to prevent risk hallucinations in water bodies.
+- **7-Day Temporal Weather (NEW)**: Switched to Open-Meteo Historical API for a 7-day rolling rain accumulation memory.
+- **Dynamic Urban Tracking (NEW)**: Global OSM Overpass integration detects infrastructure density anywhere on Earth.
+- **Resilient GEE Caching (NEW)**: 24-hour result persistence to prevent Earth Engine API timeouts.
+- **Satellite Surveillance**:
     - **NDVI (Sentinel-2)**: Detects vegetation root stability.
-    - **Soil Moisture (NASA SMAP)**: Detects deep-ground saturation history.
-    - **Burn Scars (MODIS)**: Detects high-risk post-wildfire zones.
-- **Urban Calibration**: Applied "Infrastructure Engineering" dampening for major cities.
+    - **Soil Moisture (NASA SMAP)**: Detects ground saturation history.
+    - **Burn Scars (MODIS)**: Detects post-wildfire instability.
 
 ---
 
-## 🚀 How to Run (For Prateek/Visualizer)
+## 🧠 Brain Logic (v4.1 Multi-Factor Fusion)
+The Risk Score (`0.0 - 1.0`) is a weighted fusion of:
+1. **Historical Baseline (ML)**: Geological history tracked via `nasa_glc.csv`.
+2. **Saturation Memory**: 7-day rainfall accumulation (Open-Meteo API).
+3. **Vegetation Bonus**: Forests (High NDVI) reduce risk by ~30%.
+4. **Saturation Penalty**: Saturated ground (NASA SMAP > 35%) increases risk by 1.5x.
+5. **Urban Safety Bonus**: Dynamic OSM checks for "Infrastructure Stability" bonuses (roads/buildings).
+6. **Geography Guard**: Returns `0.0` immediately for ocean/polar ice coordinates.
+
+---
+
+## 🚀 How to Run (For Team Members)
 
 ### 1. Setup Environment
 Ensure your `.env` file has the following (Ask Arul or Tanish for keys):
