@@ -1,0 +1,10 @@
+[phases.setup]
+nixPkgs = ["python313", "expat", "gdal", "libxml2", "libxslt", "proj", "geos"]
+
+[phases.build]
+cmds = [
+  "pip install -r requirements.txt"
+]
+
+[start]
+cmd = "uvicorn main:app --host 0.0.0.0 --port $PORT"
