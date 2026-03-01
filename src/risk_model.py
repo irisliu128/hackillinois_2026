@@ -82,7 +82,28 @@ def predict(
         multiplier *= 2.0 
 
     # 6. 🏗️ Urban Infrastructure
-    is_urban = (32.0 < lat < 49.0) and (-125.0 < lon < -117.0) 
+    import requests
+    is_urban = False
+    try:
+        # Check OpenStreetMap for urban infrastructure (buildings or major roads) within a 1km radius
+        # Overpass API uses format: (south, west, north, east)
+        bbox = f"{lat - 0.01},{lon - 0.01},{lat + 0.01},{lon + 0.01}" 
+        query = f"""
+        [out:json][timeout:5];
+        (
+          way["highway"~"primary|secondary|tertiary|residential"]({bbox});
+          way["building"]({bbox});
+        );
+        out count;
+        """
+        response = requests.post("https://overpass-api.de/api/interpreter", data={"data": query}, timeout=6)
+        if response.status_code == 200:
+            data = response.json()
+            if int(data.get("elements", [{}])[0].get("tags", {}).get("ways", 0)) > 50:
+                 is_urban = True
+    except Exception:
+        pass # If OSM fails, safely default back to rural
+        
     if is_urban:
         multiplier *= 0.4 # 60% safety bonus for engineered cities
 

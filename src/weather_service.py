@@ -17,21 +17,25 @@ def fetch_rainfall_data(lat: float, lon: float) -> float:
         logger.warning("OpenWeatherMap API Key not found. Defaulting rainfall to 0.0mm.")
         return 0.0
     
-    # Using the current weather API to get precipitation
-    url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={api_key}"
+    # Fetch preceding 7 days of rainfall using Open-Meteo Historical API
+    from datetime import datetime, timedelta
+    
+    end_date = datetime.utcnow().strftime('%Y-%m-%d')
+    start_date = (datetime.utcnow() - timedelta(days=7)).strftime('%Y-%m-%d')
+    
+    url = f"https://archive-api.open-meteo.com/v1/archive?latitude={lat}&longitude={lon}&start_date={start_date}&end_date={end_date}&daily=precipitation_sum&timezone=auto"
     
     try:
+        # We can use requests-cache here later, or simply fetch since Open-Meteo is free and fast
         resp = requests.get(url, timeout=10)
         if resp.status_code == 200:
             data = resp.json()
-            # Rainfall for the last 1h or 3h if available [cite: 5]
-            rain_1h = data.get("rain", {}).get("1h", 0.0)
-            rain_3h = data.get("rain", {}).get("3h", 0.0)
+            daily_rain = data.get("daily", {}).get("precipitation_sum", [])
+            # Filter out None values just in case
+            valid_rain = [r for r in daily_rain if r is not None]
             
-            # Since we want something more significant for landslide risk,
-            # we'll use a conservative sum or handle the absence.
-            total_rain = max(rain_1h, rain_3h)
-            logger.info(f"Fetched weather: {total_rain}mm rain detected at ({lat}, {lon}).")
+            total_rain = sum(valid_rain)
+            logger.info(f"Fetched weather: {total_rain}mm 7-day accumulated rain detected at ({lat}, {lon}).")
             return float(total_rain)
         else:
             logger.error(f"Weather API Error: {resp.status_code} - {resp.text}")

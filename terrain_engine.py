@@ -61,6 +61,31 @@ class TerrainAnalyzer:
         if not self.gee_available:
             return {"ndvi": 0.5, "soil_moisture": 0.3, "is_burn_zone": False}
 
+        # Resilient Caching: Only query GEE if we haven't checked this approx area in 24 hours.
+        import requests_cache
+        from pathlib import Path
+        cache_dir = Path(self.work_dir) / "gee_cache"
+        requests_cache.install_cache(str(cache_dir), expire_after=86400) # 24 hour cache
+        
+        # Round to ~1km resolution to increase cache hits for nearby requests
+        cache_lat = round(lat, 2)
+        cache_lon = round(lon, 2)
+        cache_key = f"{cache_lat}_{cache_lon}"
+        
+        # We simulate a cache check using requests_cache by creating a dummy URL
+        # Since Earth Engine API isn't a simple REST endpoint we can wrap with requests_cache,
+        # we'll build a simple dict cache on top of requests_cache's SQLite backend manually
+        
+        session = requests_cache.CachedSession(str(cache_dir), expire_after=86400)
+        dummy_url = f"http://local.gee.cache/{cache_key}"
+        
+        cached_resp = session.get(dummy_url)
+        if cached_resp.status_code == 200:
+            logger.info(f"   GEE Cache HIT for {cache_key}")
+            return cached_resp.json()
+
+        logger.info(f"   GEE Cache MISS for {cache_key}. Fetching live satellite indices...")
+
         point = ee.Geometry.Point([lon, lat])
         buffer = point.buffer(500) # 500m radius for environmental context
 
@@ -91,11 +116,22 @@ class TerrainAnalyzer:
         
         burn_val = burn.select('BurnDate').reduceRegion(ee.Reducer.max(), buffer, 500).get('BurnDate').getInfo()
 
-        return {
+        result = {
             "ndvi": float(ndvi_val) if ndvi_val else 0.4,
             "soil_moisture": float(moisture_val) if moisture_val else 0.2,
             "is_burn_zone": burn_val is not None and burn_val > 0
         }
+        
+        # Save to cache using a manual mock response
+        from requests.models import Response
+        import json
+        mock_resp = Response()
+        mock_resp.status_code = 200
+        mock_resp._content = json.dumps(result).encode('utf-8')
+        mock_resp.url = dummy_url
+        session.cache.save_response(mock_resp)
+
+        return result
 
     def process_hydrology(self, raw_dem_name):
         logger.info("Phase 3: Cleaning terrain physics...")

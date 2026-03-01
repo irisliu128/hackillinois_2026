@@ -142,8 +142,24 @@ async def analyze(req: AnalyzeRequest):
         f"→ /v1/analyze  lat={req.latitude:.4f} lon={req.longitude:.4f} radius={req.radius}km"
     )
 
-    # ── Step 0: Auto-fetch Environment (Arul's Automation) ───────────────────
-    logger.info("   Auto-detecting regional environmental data...")
+    # ── Step 0: Auto-fetch Environment & Validate Geography ─────────────
+    logger.info("   Auto-detecting regional environmental data and geology...")
+    
+    from global_land_mask import globe
+    is_on_land = globe.is_land(req.latitude, req.longitude)
+    if not is_on_land:
+        logger.warning("   Coordinate is in the ocean. Exiting early.")
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "Coordinate is not on land",
+                "detail": f"Coordinate ({req.latitude}, {req.longitude}) is located in the ocean. Landslide risk is completely entirely inapplicable.",
+                "risk_score": 0.0,
+                "flow_paths": None,
+                "metadata": _build_metadata(req, elapsed=time.perf_counter() - t0),
+            },
+        )
+            
     rainfall_mm: float = fetch_rainfall_data(req.latitude, req.longitude)
     soil_type: str = fetch_soil_type(req.latitude, req.longitude)
     
